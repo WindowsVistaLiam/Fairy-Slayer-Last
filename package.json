@@ -1,0 +1,22 @@
+{
+  "name": "fairy-slayer",
+  "version": "1.0.0",
+  "description": "Bot Discord RP Fairy Slayer - profils multiples, boutique, classements, admin, XP et Canvas.",
+  "main": "src/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js",
+    "deploy": "node deploy-commands.js",
+    "check": "node --check src/index.js && node --check deploy-commands.js"
+  },
+  "dependencies": {
+    "@napi-rs/canvas": "^1.0.1",
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.0.0",
+    "mongoose": "^9.7.3"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}
