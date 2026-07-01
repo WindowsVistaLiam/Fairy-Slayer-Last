@@ -540,7 +540,11 @@ async function handleImageModal(interaction) {
     });
   }
 
-  profile.avatarUrl = avatarUrl;
+  const normalizedAvatarUrl = avatarUrl
+  ? avatarUrl.replace('https://media.discordapp.net/', 'https://cdn.discordapp.com/')
+  : null;
+
+  profile.avatarUrl = normalizedAvatarUrl;
   await profile.save();
 
   if (!avatarUrl) {

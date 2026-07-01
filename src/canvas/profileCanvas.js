@@ -159,23 +159,106 @@ async function loadLocalImage(filePath) {
   }
 }
 
-async function loadRemoteImage(url) {
+function normalizeProfileImageUrl(url) {
   if (!url) return null;
 
   try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Fairy-Slayer/1.0',
-      },
-    });
+    const parsed = new URL(url);
 
-    if (!response.ok) return null;
+    if (
+      parsed.hostname === 'media.discordapp.net'
+      || parsed.hostname === 'cdn.discordapp.com'
+    ) {
+      return `https://cdn.discordapp.com${parsed.pathname}`;
+    }
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return await loadImage(buffer);
+    return url;
   } catch (_) {
-    return null;
+    return url;
   }
+}
+
+function buildImageCandidateUrls(url) {
+  const normalized = normalizeProfileImageUrl(url);
+
+  if (!normalized) return [];
+
+  const candidates = new Set([url, normalized]);
+
+  try {
+    const parsed = new URL(normalized);
+
+    if (parsed.hostname === 'cdn.discordapp.com') {
+      const pngVersion = new URL(normalized);
+      pngVersion.searchParams.set('format', 'png');
+      pngVersion.searchParams.set('quality', 'lossless');
+      candidates.add(pngVersion.toString());
+
+      const jpgVersion = new URL(normalized);
+      jpgVersion.searchParams.set('format', 'jpg');
+      jpgVersion.searchParams.set('quality', 'lossless');
+      candidates.add(jpgVersion.toString());
+    }
+  } catch (_) {
+    // ignore
+  }
+
+  return [...candidates];
+}
+
+async function loadRemoteImage(url) {
+  if (!url) return null;
+
+  const candidates = buildImageCandidateUrls(url);
+
+  for (const candidate of candidates) {
+    try {
+      // Essai direct
+      try {
+        const directImage = await loadImage(candidate);
+        if (directImage) {
+          console.log(`✅ Image distante chargée directement : ${candidate}`);
+          return directImage;
+        }
+      } catch (_) {
+        // on tente ensuite via fetch
+      }
+
+      const response = await fetch(candidate, {
+        method: 'GET',
+        redirect: 'follow',
+        headers: {
+          'User-Agent': 'Fairy-Slayer/1.0',
+          Accept: 'image/avif,image/webp,image/apng,image/png,image/jpeg,image/*,*/*;q=0.8',
+        },
+      });
+
+      if (!response.ok) {
+        console.warn(`⚠️ Échec HTTP image distante (${response.status}) : ${candidate}`);
+        continue;
+      }
+
+      const contentType = response.headers.get('content-type') || '';
+
+      if (!contentType.startsWith('image/')) {
+        console.warn(`⚠️ URL non-image retournée : ${candidate} (${contentType})`);
+        continue;
+      }
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      const image = await loadImage(buffer);
+
+      if (image) {
+        console.log(`✅ Image distante chargée via fetch : ${candidate}`);
+        return image;
+      }
+    } catch (error) {
+      console.warn(`⚠️ Impossible de charger l'image distante : ${candidate} -> ${error.message}`);
+    }
+  }
+
+  console.warn(`❌ Aucune version de l'image n'a pu être chargée : ${url}`);
+  return null;
 }
 
 function drawGlow(ctx, x, y, radius, color, alpha = 0.35) {
