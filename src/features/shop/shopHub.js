@@ -130,7 +130,7 @@ function formatShopItemLine(item, finalPrice, availability) {
   const bonusText = powerBonus > 0 ? ` - +${formatNumber(powerBonus)} puissance` : '';
   const status = availability.allowed ? 'Disponible' : `Bloqué : ${availability.reason}`;
 
-  return `${item.name} - ${formatNumber(finalPrice)} Jewels - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - ${status}`;
+  return `${item.name} - ${formatNumber(finalPrice)} Joyaux - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - ${status}`;
 }
 
 function getBuyRows(items, profile, rumors, powerInfo) {
@@ -142,7 +142,7 @@ function getBuyRows(items, profile, rumors, powerInfo) {
 
     return new StringSelectMenuOptionBuilder()
       .setLabel(item.name.slice(0, 100))
-      .setDescription(`${formatNumber(finalPrice)} Jewels - ${availability.reason}${bonusText}`.slice(0, 100))
+      .setDescription(`${formatNumber(finalPrice)} Joyaux - ${availability.reason}${bonusText}`.slice(0, 100))
       .setValue(item.itemId);
   });
 
@@ -204,7 +204,7 @@ function getSellRows(inventoryItems) {
 
       return new StringSelectMenuOptionBuilder()
         .setLabel(item.name.slice(0, 100))
-        .setDescription(`x${item.quantity} - revente ${formatNumber(item.sellPrice)} Jewels${bonusText}`.slice(0, 100))
+        .setDescription(`x${item.quantity} - revente ${formatNumber(item.sellPrice)} Joyaux${bonusText}`.slice(0, 100))
         .setValue(item.itemId);
     });
 
@@ -264,7 +264,7 @@ async function renderShop(interaction, filterType = null) {
     title: filterType ? `Rayon ${getTypeLabel(filterType)}` : 'Boutique de Magnolia',
     subtitle: 'Les prix évoluent selon ta réputation, les rumeurs et tes conditions de puissance.',
     stats: [
-      { label: 'Jewels', value: formatNumber(profile.jewels) },
+      { label: 'Joyaux', value: formatNumber(profile.jewels) },
       { label: 'Puissance', value: formatNumber(powerInfo.totalPower) },
       { label: 'Bonus équip.', value: `+${formatNumber(powerInfo.equipmentBonus)}` },
       { label: 'Rang', value: profile.mageRank },
@@ -313,7 +313,7 @@ async function renderSellMenu(interaction) {
       const bonusText = powerBonus > 0 ? ` - +${formatNumber(powerBonus)} puissance` : '';
       const equippedText = item.equipped ? ' - ÉQUIPÉ' : '';
 
-      return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - revente ${formatNumber(item.sellPrice)} Jewels${equippedText}`;
+      return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - revente ${formatNumber(item.sellPrice)} Joyaux${equippedText}`;
     })
     : [
       'Ton inventaire est vide. Achète des objets dans la boutique ou demande au staff de t’en donner.',
@@ -326,9 +326,9 @@ async function renderSellMenu(interaction) {
     variant: 'shop',
     section: `Vente — ${profile.characterName}`,
     title: 'Revendre un objet',
-    subtitle: `Valeur totale de revente : ${formatNumber(totalSellValue)} Jewels`,
+    subtitle: `Valeur totale de revente : ${formatNumber(totalSellValue)} Joyaux`,
     stats: [
-      { label: 'Jewels', value: formatNumber(profile.jewels) },
+      { label: 'Joyaux', value: formatNumber(profile.jewels) },
       { label: 'Objets', value: formatNumber(inventoryItems.reduce((total, item) => total + item.quantity, 0)) },
       { label: 'Bonus équip.', value: `+${formatNumber(powerInfo.equipmentBonus)}` },
       { label: 'Valeur', value: formatNumber(totalSellValue) },
@@ -384,7 +384,7 @@ async function buyItem(interaction) {
 
   if (Number(profile.jewels || 0) < finalPrice) {
     return interaction.reply({
-      content: `Tu n’as pas assez de Jewels. Prix : **${formatNumber(finalPrice)} Jewels**.`,
+      content: `Tu n’as pas assez de Joyaux. Prix : **${formatNumber(finalPrice)} Joyaux**.`,
       flags: MessageFlags.Ephemeral,
     });
   }
@@ -398,7 +398,7 @@ async function buyItem(interaction) {
   const bonusText = powerBonus > 0 ? ` Il donne **+${formatNumber(powerBonus)} puissance** une fois équipé.` : '';
 
   return interaction.reply({
-    content: `Achat réussi : **${item.name}** pour **${formatNumber(finalPrice)} Jewels**.${bonusText}`,
+    content: `Achat réussi : **${item.name}** pour **${formatNumber(finalPrice)} Joyaux**.${bonusText}`,
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -449,7 +449,7 @@ async function sellItem(interaction) {
   await profile.save();
 
   return interaction.reply({
-    content: `Vente réussie : **${item.name}** vendu pour **${formatNumber(sellPrice)} Jewels**.`,
+    content: `Vente réussie : **${item.name}** vendu pour **${formatNumber(sellPrice)} Joyaux**.`,
     flags: MessageFlags.Ephemeral,
   });
 }

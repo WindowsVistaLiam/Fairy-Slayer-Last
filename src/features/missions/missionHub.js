@@ -18,6 +18,7 @@ const { getActiveProfile } = require('../../utils/activeProfile');
 const { formatNumber, truncateText } = require('../../utils/format');
 const { applyXp } = require('../../utils/xp');
 const { clampReputation } = require('../../utils/reputation');
+const { hasConfiguredStaffPermission, sendGuildLog } = require('../../utils/guildConfig');
 
 const {
   addItemToInventory,
@@ -37,9 +38,8 @@ function createCanvasEmbed(fileName, color = 0xffd166) {
     .setImage(`attachment://${fileName}`);
 }
 
-function hasStaffPermission(interaction) {
-  return interaction.memberPermissions?.has('ManageGuild')
-    || interaction.memberPermissions?.has('Administrator');
+async function hasStaffPermission(interaction) {
+  return hasConfiguredStaffPermission(interaction);
 }
 
 function getMissionStatusLabel(status) {
@@ -522,7 +522,7 @@ async function applyMissionRewards(profile, mission, interaction) {
 }
 
 async function validateMission(interaction, profileMissionId) {
-  if (!hasStaffPermission(interaction)) {
+  if (!(await hasStaffPermission(interaction))) {
     return interaction.reply({
       content: 'Seul le staff peut valider une mission.',
       flags: MessageFlags.Ephemeral,
@@ -563,6 +563,12 @@ async function validateMission(interaction, profileMissionId) {
   entry.reviewedBy = interaction.user.id;
 
   await entry.save();
+  await sendGuildLog(interaction.guild, 'Mission validée', [
+    `Mission : **${mission.title}**`,
+    `Profil : **${profile.characterName}** (<@${profile.userId}>)`,
+    `Récompenses : ${getMissionRewardText(mission)}`,
+    `Par <@${interaction.user.id}>`,
+  ], 0x57f287);
 
   const lines = [
     `Mission validée : ${mission.title}`,
@@ -598,7 +604,7 @@ async function validateMission(interaction, profileMissionId) {
 }
 
 async function failMission(interaction, profileMissionId) {
-  if (!hasStaffPermission(interaction)) {
+  if (!(await hasStaffPermission(interaction))) {
     return interaction.reply({
       content: 'Seul le staff peut refuser une mission.',
       flags: MessageFlags.Ephemeral,
@@ -629,6 +635,11 @@ async function failMission(interaction, profileMissionId) {
   entry.reviewedBy = interaction.user.id;
 
   await entry.save();
+  await sendGuildLog(interaction.guild, 'Mission refusée', [
+    `Mission : **${mission?.title || entry.missionId}**`,
+    `Profil : **${profile?.characterName || 'Inconnu'}**${profile?.userId ? ` (<@${profile.userId}>)` : ''}`,
+    `Par <@${interaction.user.id}>`,
+  ], 0xed4245);
 
   const fileName = 'fairy-slayer-mission-refusee.png';
 

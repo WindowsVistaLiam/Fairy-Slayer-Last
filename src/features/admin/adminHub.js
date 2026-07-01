@@ -99,6 +99,12 @@ function getAdminRows() {
         .setStyle(ButtonStyle.Danger),
 
       new ButtonBuilder()
+        .setCustomId('admin:inspect_profile')
+        .setLabel('Inspecter profil')
+        .setEmoji('🔎')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
         .setCustomId('admin:config_info')
         .setLabel('Configuration')
         .setEmoji('🧩')
@@ -275,13 +281,11 @@ async function openAdminHub(interaction) {
     footer: 'Utilise les boutons sous le Canvas pour administrer Fairy Slayer.',
   });
 
-  return interaction.reply({
-    ...createLargeCanvasPayload({
-      attachment,
-      components: getAdminRows(),
-    }),
-    flags: MessageFlags.Ephemeral,
-  });
+  const payload = createLargeCanvasPayload({ attachment, components: getAdminRows() });
+  if (interaction.isButton?.() || interaction.isStringSelectMenu?.()) {
+    return interaction.update(payload);
+  }
+  return interaction.reply({ ...payload, flags: MessageFlags.Ephemeral });
 }
 
 async function showRecentProfiles(interaction) {
@@ -404,6 +408,55 @@ async function showEditProfileModal(interaction) {
   return interaction.showModal(modal);
 }
 
+async function showInspectProfileModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId('admin:inspect_profile:modal')
+    .setTitle('Inspecter un profil');
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('characterName')
+        .setLabel('Nom exact du personnage')
+        .setPlaceholder('Exemple : Kael Dragneel')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(80),
+    ),
+  );
+  return interaction.showModal(modal);
+}
+
+async function handleInspectProfileModal(interaction) {
+  const characterName = interaction.fields.getTextInputValue('characterName').trim();
+  const profile = await findProfileByName(interaction, characterName);
+  if (!profile) {
+    return interaction.reply({
+      content: `Aucun profil trouvé avec le nom exact **${truncateText(characterName, 80)}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+  const items = await getInventoryDetails(profile._id);
+  const equipped = items.filter((item) => item.equipped);
+  const equipmentBonus = equipped.reduce((total, item) => total + Number(item.powerBonus || 0), 0);
+  const lines = [
+    `Joueur : <@${profile.userId}> — ID ${profile.userId}`,
+    `Rang ${profile.mageRank} — Niveau ${profile.level} — XP ${formatNumber(profile.xp)}`,
+    `Puissance : ${formatNumber(profile.powerLevel)} + ${formatNumber(equipmentBonus)} équipement`,
+    `Joyaux : ${formatNumber(profile.jewels)} — Réputation : ${profile.reputation}`,
+    `Inventaire : ${items.reduce((total, item) => total + item.quantity, 0)} objet(s) — ${equipped.length}/4 équipé(s)`,
+    ...equipped.map((item) => `${item.equipSlotLabel} : ${item.name} (+${formatNumber(item.powerBonus || 0)})`),
+  ];
+  const attachment = await createPanelCanvas({
+    fileName: 'fairy-slayer-admin-inspection.png', variant: 'admin',
+    section: 'Inspection profil', title: profile.characterName,
+    subtitle: `${profile.magicType} — ${profile.guildName}`,
+    lines, footer: 'Inspection en lecture seule — aucune donnée modifiée.',
+  });
+  return interaction.reply({
+    ...createLargeCanvasPayload({ attachment }), flags: MessageFlags.Ephemeral,
+  });
+}
+
 async function handleEditProfileModal(interaction) {
   const characterName = interaction.fields.getTextInputValue('characterName').trim();
   const mageRankInput = interaction.fields.getTextInputValue('mageRank')?.trim();
@@ -456,6 +509,11 @@ async function handleEditProfileModal(interaction) {
   }
 
   await profile.save();
+  await sendGuildLog(interaction.guild, 'Profil modifié par le staff', [
+    `Profil : **${profile.characterName}** (<@${profile.userId}>)`,
+    `Par <@${interaction.user.id}>`,
+    ...(changes.length ? changes : ['Aucune valeur modifiée']),
+  ]);
 
   const fileName = 'fairy-slayer-admin-modification.png';
 
@@ -544,6 +602,11 @@ async function handleJewelsModal(interaction) {
   profile.jewels = Math.max(0, before + jewelsDelta);
 
   await profile.save();
+  await sendGuildLog(interaction.guild, 'Joyaux modifiés', [
+    `Profil : **${profile.characterName}** (<@${profile.userId}>)`,
+    `Variation : ${jewelsDelta > 0 ? '+' : ''}${jewelsDelta}`,
+    `Nouveau solde : ${profile.jewels}`, `Par <@${interaction.user.id}>`, `Raison : ${reason}`,
+  ], 0x57f287);
 
   const fileName = 'fairy-slayer-admin-joyaux.png';
 
@@ -623,6 +686,11 @@ async function handleXpModal(interaction) {
   }
 
   await profile.save();
+  await sendGuildLog(interaction.guild, 'XP modifiée', [
+    `Profil : **${profile.characterName}** (<@${profile.userId}>)`,
+    `Variation : ${xpDelta > 0 ? '+' : ''}${xpDelta} XP`,
+    `Niveau : ${oldLevel} → ${profile.level}`, `Par <@${interaction.user.id}>`,
+  ], 0xf7d078);
 
   const lines = [
     `XP modifiée : ${xpDelta > 0 ? '+' : ''}${formatNumber(xpDelta)}`,
@@ -725,6 +793,10 @@ async function handleGiveItemModal(interaction) {
   }
 
   await addItemToInventory(profile._id, item.itemId, quantity);
+  await sendGuildLog(interaction.guild, 'Objet donné', [
+    `Profil : **${profile.characterName}** (<@${profile.userId}>)`,
+    `Objet : **${item.name}** × ${quantity}`, `Par <@${interaction.user.id}>`,
+  ], 0x57f287);
 
   const inventoryItems = await getInventoryDetails(profile._id);
   const owned = inventoryItems.find((inventoryItem) => inventoryItem.itemId === item.itemId);
@@ -836,6 +908,10 @@ async function handleRemoveItemModal(interaction) {
       flags: MessageFlags.Ephemeral,
     });
   }
+  await sendGuildLog(interaction.guild, 'Objet retiré', [
+    `Profil : **${profile.characterName}** (<@${profile.userId}>)`,
+    `Objet : **${item.name}** × ${quantity}`, `Par <@${interaction.user.id}>`,
+  ], 0xed4245);
 
   const inventoryItems = await getInventoryDetails(profile._id);
   const owned = inventoryItems.find((inventoryItem) => inventoryItem.itemId === item.itemId);
@@ -866,7 +942,71 @@ async function handleRemoveItemModal(interaction) {
   });
 }
 
+function hasConfigPermission(interaction) {
+  return interaction.memberPermissions?.has('ManageGuild')
+    || interaction.memberPermissions?.has('Administrator');
+}
+
+function configInput(customId, label, placeholder, required = false) {
+  return new ActionRowBuilder().addComponents(
+    new TextInputBuilder()
+      .setCustomId(customId).setLabel(label).setPlaceholder(placeholder)
+      .setStyle(TextInputStyle.Paragraph).setRequired(required).setMaxLength(1000),
+  );
+}
+
+async function showConfigModal(interaction, type) {
+  if (!hasConfigPermission(interaction)) {
+    return interaction.reply({ content: 'La configuration nécessite la permission **Gérer le serveur**.', flags: MessageFlags.Ephemeral });
+  }
+  const config = await getOrCreateGuildConfig(interaction.guildId);
+  const modal = new ModalBuilder().setCustomId(`admin:config_${type}:modal`).setTitle('Configuration Fairy Slayer');
+  if (type === 'rp_channels') modal.addComponents(configInput('channelIds', 'Salons RP (mentions ou IDs)', '#rp-ville, #rp-guilde — vide = aucun'));
+  if (type === 'logs') modal.addComponents(configInput('channelId', 'Salon de logs (mention ou ID)', '#logs-fairy-slayer — vide = désactivé'));
+  if (type === 'staff_roles') modal.addComponents(configInput('roleIds', 'Rôles staff (mentions ou IDs)', '@Modérateur, @Maître du jeu — vide = aucun'));
+  if (type === 'profile_slots') modal.addComponents(
+    configInput('defaultSlots', 'Slots par défaut (1 à 20)', String(config.defaultProfileSlots || 3), true),
+    configInput('rules', 'Règles rôle = slots', '@VIP = 5, @Booster = 7 — vide = aucune'),
+  );
+  if (type === 'xp') modal.addComponents(
+    configInput('cooldown', 'Cooldown XP en secondes', String(config.xpCooldownSeconds || 45), true),
+    configInput('minLength', 'Longueur minimale du message', String(config.minMessageLength || 25), true),
+  );
+  return interaction.showModal(modal);
+}
+
+async function handleConfigModal(interaction, type) {
+  if (!hasConfigPermission(interaction)) {
+    return interaction.reply({ content: 'Permission **Gérer le serveur** requise.', flags: MessageFlags.Ephemeral });
+  }
+  const config = await getOrCreateGuildConfig(interaction.guildId);
+  const changes = [];
+  if (type === 'rp_channels') {
+    config.rpChannelIds = parseDiscordIdList(interaction.fields.getTextInputValue('channelIds'));
+    changes.push(`Salons RP : ${formatChannelList(config.rpChannelIds)}`);
+  } else if (type === 'logs') {
+    const ids = parseDiscordIdList(interaction.fields.getTextInputValue('channelId'));
+    config.logChannelId = ids[0] || null;
+    changes.push(`Salon de logs : ${config.logChannelId ? `<#${config.logChannelId}>` : 'Désactivé'}`);
+  } else if (type === 'staff_roles') {
+    config.staffRoleIds = parseDiscordIdList(interaction.fields.getTextInputValue('roleIds'));
+    changes.push(`Rôles staff : ${formatRoleList(config.staffRoleIds)}`);
+  } else if (type === 'profile_slots') {
+    config.defaultProfileSlots = parsePositiveInteger(interaction.fields.getTextInputValue('defaultSlots'), 3, 20);
+    config.profileSlotRoleRules = parseProfileSlotRules(interaction.fields.getTextInputValue('rules'));
+    changes.push(`Slots par défaut : ${config.defaultProfileSlots}`, `Règles :\n${formatSlotRules(config.profileSlotRoleRules)}`);
+  } else if (type === 'xp') {
+    config.xpCooldownSeconds = Math.max(5, Math.min(3600, parseSignedInteger(interaction.fields.getTextInputValue('cooldown'), 45)));
+    config.minMessageLength = Math.max(1, Math.min(500, parseSignedInteger(interaction.fields.getTextInputValue('minLength'), 25)));
+    changes.push(`Cooldown XP : ${config.xpCooldownSeconds}s`, `Longueur minimale : ${config.minMessageLength} caractères`);
+  }
+  await config.save();
+  await sendGuildLog(interaction.guild, 'Configuration serveur modifiée', [`Par <@${interaction.user.id}>`, ...changes], 0xff6b6b);
+  return interaction.reply({ content: `✅ Configuration enregistrée.\n${changes.join('\n')}`, flags: MessageFlags.Ephemeral });
+}
+
 async function showConfigInfo(interaction) {
+  const config = await getOrCreateGuildConfig(interaction.guildId);
   const fileName = 'fairy-slayer-admin-config.png';
 
   const attachment = await createPanelCanvas({
@@ -874,12 +1014,14 @@ async function showConfigInfo(interaction) {
     variant: 'admin',
     section: 'Configuration',
     title: 'Paramètres serveur',
-    subtitle: 'La configuration avancée arrivera dans une prochaine étape.',
+    subtitle: 'Paramètres actifs pour ce serveur Discord.',
     lines: [
-      'Prévu : salons RP qui donnent de l’XP.',
-      'Prévu : salon de logs.',
-      'Prévu : rôles staff.',
-      'Prévu : slots de profils selon les rôles.',
+      `Salons RP avec gain d’XP : ${formatChannelList(config.rpChannelIds)}`,
+      `Salon de logs : ${config.logChannelId ? `<#${config.logChannelId}>` : 'Désactivé'}`,
+      `Rôles staff : ${formatRoleList(config.staffRoleIds)}`,
+      `Slots par défaut : ${config.defaultProfileSlots}`,
+      `Slots selon les rôles : ${formatSlotRules(config.profileSlotRoleRules)}`,
+      `XP RP : cooldown ${config.xpCooldownSeconds}s, minimum ${config.minMessageLength} caractères.`,
     ],
     footer: 'Menu /admin - Configuration',
   });
@@ -887,13 +1029,13 @@ async function showConfigInfo(interaction) {
   return interaction.update({
     ...createLargeCanvasPayload({
       attachment,
-      components: getAdminRows(),
+      components: getConfigRows(),
     }),
   });
 }
 
 async function handleAdminComponent(interaction) {
-  if (!hasAdminPermission(interaction)) {
+  if (!(await hasAdminPermission(interaction))) {
     return interaction.reply({
       content: 'Tu n’as pas la permission d’utiliser cette action.',
       flags: MessageFlags.Ephemeral,
@@ -907,7 +1049,14 @@ async function handleAdminComponent(interaction) {
   if (interaction.customId === 'admin:item_catalog') return showItemCatalog(interaction);
   if (interaction.customId === 'admin:give_item') return showGiveItemModal(interaction);
   if (interaction.customId === 'admin:remove_item') return showRemoveItemModal(interaction);
+  if (interaction.customId === 'admin:inspect_profile') return showInspectProfileModal(interaction);
   if (interaction.customId === 'admin:config_info') return showConfigInfo(interaction);
+  if (interaction.customId === 'admin:home') return openAdminHub(interaction);
+  if (interaction.customId === 'admin:config_rp_channels') return showConfigModal(interaction, 'rp_channels');
+  if (interaction.customId === 'admin:config_logs') return showConfigModal(interaction, 'logs');
+  if (interaction.customId === 'admin:config_staff_roles') return showConfigModal(interaction, 'staff_roles');
+  if (interaction.customId === 'admin:config_profile_slots') return showConfigModal(interaction, 'profile_slots');
+  if (interaction.customId === 'admin:config_xp') return showConfigModal(interaction, 'xp');
 
   return interaction.reply({
     content: 'Action admin inconnue.',
@@ -916,7 +1065,7 @@ async function handleAdminComponent(interaction) {
 }
 
 async function handleAdminModal(interaction) {
-  if (!hasAdminPermission(interaction)) {
+  if (!(await hasAdminPermission(interaction))) {
     return interaction.reply({
       content: 'Tu n’as pas la permission d’utiliser cette action.',
       flags: MessageFlags.Ephemeral,
@@ -928,6 +1077,12 @@ async function handleAdminModal(interaction) {
   if (interaction.customId === 'admin:xp_profile:modal') return handleXpModal(interaction);
   if (interaction.customId === 'admin:give_item:modal') return handleGiveItemModal(interaction);
   if (interaction.customId === 'admin:remove_item:modal') return handleRemoveItemModal(interaction);
+  if (interaction.customId === 'admin:inspect_profile:modal') return handleInspectProfileModal(interaction);
+  if (interaction.customId === 'admin:config_rp_channels:modal') return handleConfigModal(interaction, 'rp_channels');
+  if (interaction.customId === 'admin:config_logs:modal') return handleConfigModal(interaction, 'logs');
+  if (interaction.customId === 'admin:config_staff_roles:modal') return handleConfigModal(interaction, 'staff_roles');
+  if (interaction.customId === 'admin:config_profile_slots:modal') return handleConfigModal(interaction, 'profile_slots');
+  if (interaction.customId === 'admin:config_xp:modal') return handleConfigModal(interaction, 'xp');
 
   return interaction.reply({
     content: 'Formulaire admin inconnu.',

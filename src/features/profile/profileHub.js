@@ -40,7 +40,6 @@ const {
 } = require('../../data/items');
 
 const {
-  getOrCreatePlayer,
   getActiveProfile,
   setActiveProfile,
   countProfiles,
@@ -50,6 +49,7 @@ const { normalizeMageRank } = require('../../utils/ranks');
 const { getReputationLabel } = require('../../utils/reputation');
 const { formatNumber, truncateText } = require('../../utils/format');
 const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
+const { getProfileSlotLimit } = require('../../utils/guildConfig');
 
 const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -114,6 +114,12 @@ function getMainRows() {
     ),
 
     new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('profile:equipment')
+        .setLabel('Équipement')
+        .setEmoji('🛡️')
+        .setStyle(ButtonStyle.Secondary),
+
       new ButtonBuilder()
         .setCustomId('profile:image')
         .setLabel('Modifier l’image')
@@ -236,7 +242,7 @@ async function openProfileHub(interaction) {
       .setColor(0x7c5cff)
       .setTitle('Fairy Slayer — Aucun personnage actif')
       .setDescription(
-        'Tu n’as pas encore de personnage.\nCrée ton premier profil RP pour commencer à gagner de l’XP, des Jewels et utiliser les menus du bot.',
+        'Tu n’as pas encore de personnage.\nCrée ton premier profil RP pour commencer à gagner de l’XP, des Joyaux et utiliser les menus du bot.',
       );
 
     const message = await replyOrUpdate(interaction, {
@@ -326,12 +332,12 @@ async function showCreateModal(interaction) {
 }
 
 async function handleCreateModal(interaction) {
-  const player = await getOrCreatePlayer(interaction.user.id, interaction.guildId);
   const profileCount = await countProfiles(interaction.user.id, interaction.guildId);
+  const profileSlots = await getProfileSlotLimit(interaction.member, interaction.guildId);
 
-  if (profileCount >= player.profileSlots) {
+  if (profileCount >= profileSlots) {
     return interaction.reply({
-      content: `Tu as déjà atteint ta limite de **${player.profileSlots} profil(s)**.\nDemande au staff d’augmenter tes slots si besoin.`,
+      content: `Tu as déjà atteint ta limite de **${profileSlots} profil(s)**.\nDemande au staff d’augmenter tes slots si besoin.`,
       flags: MessageFlags.Ephemeral,
     });
   }
@@ -410,7 +416,7 @@ async function showSwitchMenu(interaction) {
     variant: 'profile',
     section: 'Changer de personnage',
     title: `${profiles.length} profil(s) disponible(s)`,
-    subtitle: 'Le profil actif reçoit l’XP, les Jewels, les missions et les actions RP.',
+    subtitle: 'Le profil actif reçoit l’XP, les Joyaux, les missions et les actions RP.',
     lines: profiles.map((profile, index) => (
       `${index + 1}. ${profile.characterName} — Rang ${profile.mageRank} · Puissance ${formatNumber(profile.powerLevel)} · Niveau ${profile.level}`
     )),
@@ -823,7 +829,7 @@ async function showInventory(interaction, category = 'all') {
     variant: 'inventory',
     section: `Inventaire — ${profile.characterName}`,
     title: getInventoryCategoryLabel(category),
-    subtitle: `${formatNumber(filteredQuantity)} objet(s) affiché(s) - valeur : ${formatNumber(filteredValue)} Jewels`,
+    subtitle: `${formatNumber(filteredQuantity)} objet(s) affiché(s) - valeur : ${formatNumber(filteredValue)} Joyaux`,
     stats: [
       { label: 'Total', value: formatNumber(summary.totalQuantity) },
       { label: 'Bonus', value: `+${formatNumber(summary.equippedPowerBonus || 0)}` },
@@ -840,6 +846,55 @@ async function showInventory(interaction, category = 'all') {
       components: getInventoryRowsWithSelect(filteredItems, category),
     }),
   });
+}
+
+async function showEquipment(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+  if (!profile) return openProfileHub(interaction);
+
+  const summary = await getInventorySummary(profile._id);
+  const slots = summary.equippedSlots || {};
+  const slotKeys = ['arme', 'tenue', 'accessoire', 'lacrima'];
+  const lines = slotKeys.map((slot) => {
+    const item = slots[slot];
+    if (!item) return `${getEquipSlotLabel(slot)} : aucun objet équipé`;
+    return `${getEquipSlotLabel(slot)} : ${item.name} — +${formatNumber(item.powerBonus || 0)} puissance`;
+  });
+  const basePower = Number(profile.powerLevel || 0);
+  const equipmentBonus = Number(summary.equippedPowerBonus || 0);
+
+  const attachment = await createPanelCanvas({
+    fileName: 'fairy-slayer-equipement.png',
+    variant: 'inventory',
+    section: `Équipement — ${profile.characterName}`,
+    title: 'Équipement actif',
+    subtitle: 'Les bonus des quatre slots sont ajoutés à la puissance du personnage.',
+    stats: [
+      { label: 'Puissance de base', value: formatNumber(basePower) },
+      { label: 'Bonus équipement', value: `+${formatNumber(equipmentBonus)}` },
+      { label: 'Puissance totale', value: formatNumber(basePower + equipmentBonus) },
+      { label: 'Slots occupés', value: `${Object.values(slots).filter(Boolean).length}/4` },
+    ],
+    lines,
+    footer: 'Ouvre l’inventaire Équipements pour équiper ou déséquiper un objet.',
+  });
+
+  const rows = [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('profile:inventory:equipement')
+        .setLabel('Gérer les équipements')
+        .setEmoji('🎒')
+        .setStyle(ButtonStyle.Primary),
+      new ButtonBuilder()
+        .setCustomId('profile:home')
+        .setLabel('Retour au profil')
+        .setEmoji('↩️')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+
+  return interaction.update(createLargeCanvasPayload({ attachment, components: rows }));
 }
 
 async function showInventoryItem(interaction) {
@@ -893,8 +948,8 @@ async function showInventoryItem(interaction) {
       `Rareté : ${getRarityLabel(item.rarity)}`,
       `Slot : ${equipSlotLabel}`,
       `Bonus de puissance : ${powerBonus > 0 ? `+${formatNumber(powerBonus)}` : 'Aucun'}`,
-      `Prix boutique : ${formatNumber(item.basePrice)} Jewels`,
-      `Prix de revente : ${formatNumber(item.sellPrice)} Jewels`,
+      `Prix boutique : ${formatNumber(item.basePrice)} Joyaux`,
+      `Prix de revente : ${formatNumber(item.sellPrice)} Joyaux`,
       `Rang requis : ${item.requiredRank || 'C'}`,
       `Puissance requise : ${formatNumber(item.requiredPower || 0)}`,
       canUseInventoryItem(item)
@@ -1114,7 +1169,7 @@ async function showMissions(interaction) {
       { label: 'Niveau', value: formatNumber(profile.level) },
       { label: 'XP', value: formatNumber(profile.xp) },
       { label: 'Rang', value: profile.mageRank },
-      { label: 'Jewels', value: formatNumber(profile.jewels) },
+      { label: 'Joyaux', value: formatNumber(profile.jewels) },
     ],
     lines,
     footer: 'Menu /profil - Missions',
@@ -1269,6 +1324,7 @@ module.exports = {
   showImageModal,
   handleImageModal,
   showInventory,
+  showEquipment,
   showInventoryItem,
   useInventoryItem,
   equipInventoryItemAction,

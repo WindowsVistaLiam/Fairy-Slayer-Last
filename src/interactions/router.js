@@ -87,6 +87,7 @@ async function handleComponentInteraction(interaction) {
 
   // Inventaire
   if (id === 'profile:inventory') return profileHub.showInventory(interaction, 'all');
+  if (id === 'profile:equipment') return profileHub.showEquipment(interaction);
   if (id === 'profile:inventory:all') return profileHub.showInventory(interaction, 'all');
   if (id === 'profile:inventory:consommable') return profileHub.showInventory(interaction, 'consommable');
   if (id === 'profile:inventory:equipement') return profileHub.showInventory(interaction, 'equipement');

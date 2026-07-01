@@ -124,7 +124,7 @@ async function buildRankingPayload(guildId, type = 'level') {
 
     const labelMap = {
       level: (profile) => `Niveau ${profile.level} · ${formatNumber(profile.xp)} XP`,
-      jewels: (profile) => `${formatNumber(profile.jewels)} Jewels`,
+      jewels: (profile) => `${formatNumber(profile.jewels)} Joyaux`,
       reputation: (profile) => `${profile.reputation} réputation`,
     };
 

@@ -611,7 +611,7 @@ async function createProfileCanvas(profile, discordUser) {
     675,
   );
 
-  drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 660, 180, 84, '#ffcf63');
+  drawInfoBox(ctx, 'JOYAUX', formatNumber(jewels), 850, 660, 180, 84, '#ffcf63');
 
   drawInfoBox(
     ctx,

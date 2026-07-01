@@ -17,10 +17,10 @@ const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { getActiveProfile } = require('../../utils/activeProfile');
 const { formatNumber, truncateText } = require('../../utils/format');
 const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
+const { hasConfiguredStaffPermission, sendGuildLog } = require('../../utils/guildConfig');
 
-function hasStaffPermission(interaction) {
-  return interaction.memberPermissions?.has('ManageGuild')
-    || interaction.memberPermissions?.has('Administrator');
+async function hasStaffPermission(interaction) {
+  return hasConfiguredStaffPermission(interaction);
 }
 
 function escapeRegex(value) {
@@ -186,7 +186,7 @@ async function getRumorRows(profile, interaction, rumors) {
       .setStyle(ButtonStyle.Secondary),
   ];
 
-  if (hasStaffPermission(interaction)) {
+  if (await hasStaffPermission(interaction)) {
     buttons.unshift(
       new ButtonBuilder()
         .setCustomId('rumor:add')
@@ -281,7 +281,7 @@ async function showRumorDetail(interaction, rumorId) {
       .setStyle(ButtonStyle.Secondary),
   ];
 
-  if (hasStaffPermission(interaction)) {
+  if (await hasStaffPermission(interaction)) {
     buttons.unshift(
       new ButtonBuilder()
         .setCustomId(`rumor:delete:${rumor._id}`)
@@ -324,7 +324,7 @@ async function showRumorDetail(interaction, rumorId) {
 }
 
 async function showAddRumorModal(interaction) {
-  if (!hasStaffPermission(interaction)) {
+  if (!(await hasStaffPermission(interaction))) {
     return interaction.reply({
       content: 'Seul le staff peut ajouter une rumeur.',
       flags: MessageFlags.Ephemeral,
@@ -391,7 +391,7 @@ async function showAddRumorModal(interaction) {
 }
 
 async function handleAddRumorModal(interaction) {
-  if (!hasStaffPermission(interaction)) {
+  if (!(await hasStaffPermission(interaction))) {
     return interaction.reply({
       content: 'Seul le staff peut ajouter une rumeur.',
       flags: MessageFlags.Ephemeral,
@@ -422,6 +422,10 @@ async function handleAddRumorModal(interaction) {
     expiresAt: null,
     createdBy: interaction.user.id,
   });
+  await sendGuildLog(interaction.guild, 'Rumeur ajoutée', [
+    `Profil : **${targetProfile.characterName}** (<@${targetProfile.userId}>)`,
+    `Type : ${type} — Crédibilité : ${credibility}%`, `Par <@${interaction.user.id}>`,
+  ]);
 
   return interaction.reply({
     content: `✅ Rumeur ajoutée sur **${targetProfile.characterName}**.`,
@@ -430,7 +434,7 @@ async function handleAddRumorModal(interaction) {
 }
 
 async function deleteRumor(interaction, rumorId) {
-  if (!hasStaffPermission(interaction)) {
+  if (!(await hasStaffPermission(interaction))) {
     return interaction.reply({
       content: 'Seul le staff peut supprimer une rumeur.',
       flags: MessageFlags.Ephemeral,
@@ -453,6 +457,9 @@ async function deleteRumor(interaction, rumorId) {
   rumor.deletedBy = interaction.user.id;
 
   await rumor.save();
+  await sendGuildLog(interaction.guild, 'Rumeur supprimée', [
+    `Rumeur : ${truncateText(rumor.content, 300)}`, `Par <@${interaction.user.id}>`,
+  ], 0xed4245);
 
   return interaction.reply({
     content: '✅ Rumeur supprimée.',

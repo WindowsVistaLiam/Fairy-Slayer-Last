@@ -1,27 +1,45 @@
-# Fairy Slayer — Bot Discord RP Node.js
+# Fairy Slayer — Bot Discord RP
 
-Fairy Slayer est une base V1 pour un bot Discord RP Fairy Tail avec seulement quatre commandes principales :
+Fairy Slayer est un bot Discord RP inspiré de Fairy Tail, construit avec Node.js, discord.js v14, MongoDB et Canvas.
 
-- `/profil` : hub du personnage actif, profils multiples, inventaire, missions, relations, rumeurs, réputation.
-- `/boutique` : boutique liée au personnage actif, prix dynamiques selon réputation et rumeurs.
+Il expose quatre commandes principales :
+
+- `/profil` : personnage actif, profils multiples, inventaire, équipement, missions, relations, rumeurs et réputation.
+- `/boutique` : achat et vente d’objets, avec prix influencés par la réputation et les rumeurs.
 - `/classement` : classements par personnage.
-- `/admin` : menu staff pour modifier rang, puissance, Jewels et réputation.
+- `/admin` : gestion staff des profils, de la progression, des inventaires et de la configuration serveur.
 
-## Fonctionnalités V1
+## Fonctionnalités
 
-- Connexion Discord.js v14.
-- Connexion MongoDB avec Mongoose.
-- Profils multiples par joueur.
-- Profil actif par joueur.
-- Champs RP : nom, âge, guilde, magie, image, description.
-- Champs demandés : `mageRank` et `powerLevel`.
-- Rangs disponibles : `C`, `B`, `A`, `S`, `Sacré`.
-- XP automatique basé sur la taille des messages.
-- Level-up avec image Canvas.
-- Carte de profil Canvas.
-- Boutique de base avec prérequis de rang et puissance.
-- Classements : niveau, puissance, richesse, réputation, missions.
-- Menu admin interactif.
+- Profils multiples et personnage actif par joueur.
+- Fiche de personnage en grand Canvas avec statistiques, image et équipement.
+- Rangs `C`, `B`, `A`, `S` et `Sacré`.
+- XP RP automatique uniquement dans les salons configurés, avec cooldown et longueur minimale réglables.
+- Montées de niveau illustrées par Canvas.
+- Inventaire MongoDB, 19 objets, consommables et équipement par slots.
+- Page `/profil` dédiée à l’équipement actif et à la puissance totale.
+- Boutique avec achat, vente, rareté, prérequis et puissance totale.
+- Classements : niveau, puissance, richesse, réputation et missions.
+- 14 missions couvrant les rangs C à Sacré, avec acceptation, soumission, validation staff et récompenses.
+- Relations, réputation et rumeurs influençant la boutique.
+- Rôles staff configurables.
+- Slots de profils configurables selon les rôles Discord.
+- Salon de logs configurable pour les actions importantes.
+- Interfaces `/profil` et `/admin` en grand Canvas.
+- Panneaux Canvas adaptatifs aux contenus longs.
+- Inspection détaillée d’un profil depuis `/admin`, sans modification des données.
+
+## Configuration depuis Discord
+
+Un membre ayant la permission Discord **Gérer le serveur** ou **Administrateur** peut ouvrir `/admin` puis **Configuration** pour régler :
+
+- les salons RP donnant de l’XP ;
+- le salon de logs ;
+- les rôles considérés comme staff ;
+- les slots de profils par défaut et les bonus selon les rôles ;
+- le cooldown XP et la longueur minimale des messages.
+
+Sans salon RP configuré, le gain d’XP par message est désactivé. Les rôles staff configurés peuvent utiliser les actions staff, mais seuls les gestionnaires du serveur peuvent modifier la configuration.
 
 ## Installation locale
 
@@ -39,7 +57,7 @@ GUILD_ID=ID_DU_SERVEUR_ICI
 MONGO_URI=mongodb+srv://USER:PASSWORD@cluster.mongodb.net/fairy-slayer
 ```
 
-Déploie les commandes slash :
+Déploie ou actualise les commandes slash :
 
 ```bash
 npm run deploy
@@ -64,6 +82,8 @@ Le bot doit aussi avoir les permissions serveur nécessaires pour :
 - Utiliser les commandes slash.
 - Joindre des fichiers.
 - Voir les salons RP.
+- Voir le salon de logs configuré.
+- Intégrer des liens et envoyer des fichiers.
 
 ## Configuration Railway
 
@@ -80,7 +100,7 @@ Sur Railway :
 
 ## Notes de développement
 
-La V1 pose une base solide. Les fichiers sont volontairement séparés pour éviter un gros fichier ingérable.
+Les fonctionnalités sont séparées afin de garder des modules lisibles :
 
 Structure importante :
 
@@ -93,25 +113,8 @@ src/events/          Événements Discord
 src/utils/           Fonctions partagées
 ```
 
-## Prochaines étapes conseillées
+## Prochaines étapes
 
-V2 :
-
-- Achat réel d’objets.
-- Vente d’objets.
-- Grille Canvas d’inventaire.
-- Gestion admin des items.
-
-V3 :
-
-- Création de missions.
-- Acceptation et validation des missions.
-- Relations modifiables entre personnages.
-- Rumeurs positives/négatives actives.
-
-V4 :
-
-- Configuration des salons RP.
-- Logs serveur.
-- Rôles staff.
-- Slots de profils selon les rôles.
+- Tester l’équilibrage des récompenses et des prix avec les joueurs.
+- Ajouter de nouveaux arcs narratifs et objets au fil des événements RP.
+- Envisager une migration MongoDB du champ technique historique `jewels` vers `joyaux` lors d’une future maintenance dédiée.

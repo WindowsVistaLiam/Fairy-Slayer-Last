@@ -49,7 +49,9 @@ function parseProfileSlotRules(value) {
 
 function memberHasAnyRole(member, roleIds = []) {
   if (!member || !roleIds.length) return false;
-  return roleIds.some((roleId) => member.roles?.cache?.has(roleId));
+  const cachedRoles = member.roles?.cache;
+  const rawRoles = Array.isArray(member.roles) ? member.roles : [];
+  return roleIds.some((roleId) => cachedRoles?.has(roleId) || rawRoles.includes(roleId));
 }
 
 async function hasConfiguredStaffPermission(interaction) {

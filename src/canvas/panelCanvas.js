@@ -325,8 +325,19 @@ async function createPanelCanvas(options) {
     variant = 'neutral',
   } = options;
 
+  const cleanLines = Array.isArray(lines) && lines.length
+    ? lines
+    : ['Aucune donnée à afficher pour l’instant.'];
+  const maxVisibleLines = 12;
+  const visibleLines = cleanLines.length > maxVisibleLines
+    ? [...cleanLines.slice(0, maxVisibleLines - 1), `… ${cleanLines.length - maxVisibleLines + 1} élément(s) supplémentaire(s)`]
+    : cleanLines;
+  const hasStats = Array.isArray(stats) && stats.length > 0;
+  const contentY = hasStats ? 360 : 250;
+  const contentH = Math.max(hasStats ? 300 : 410, visibleLines.length * 74 + 46);
+  const footerY = contentY + contentH + 25;
   const width = 1400;
-  const height = 820;
+  const height = Math.max(820, footerY + 135);
   const accent = THEME[variant] || THEME.neutral;
 
   const canvas = createCanvas(width, height);
@@ -409,7 +420,6 @@ async function createPanelCanvas(options) {
 
   // Stats
   const visibleStats = Array.isArray(stats) ? stats.slice(0, 4) : [];
-  const hasStats = visibleStats.length > 0;
 
   if (hasStats) {
     const statY = 238;
@@ -424,9 +434,7 @@ async function createPanelCanvas(options) {
 
   // Contenu
   const contentX = 90;
-  const contentY = hasStats ? 360 : 250;
   const contentW = width - 180;
-  const contentH = hasStats ? 300 : 410;
 
   roundRect(ctx, contentX, contentY, contentW, contentH, 26);
   ctx.fillStyle = 'rgba(255,255,255,0.045)';
@@ -436,17 +444,10 @@ async function createPanelCanvas(options) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  const cleanLines = Array.isArray(lines) && lines.length
-    ? lines
-    : ['Aucune donnée à afficher pour l’instant.'];
-
   let cursorY = contentY + 30;
-  const maxY = contentY + contentH - 70;
   const lineGap = 14;
 
-  for (const rawLine of cleanLines) {
-    if (cursorY > maxY) break;
-
+  for (const rawLine of visibleLines) {
     const wrapped = wrapText(ctx, rawLine, contentW - 100, 1);
     const line = wrapped[0] || '';
 
@@ -457,8 +458,6 @@ async function createPanelCanvas(options) {
 
   // Footer, bien remonté dans le cadre
   if (footer) {
-    const footerY = 685;
-
     roundRect(ctx, 90, footerY, width - 180, 48, 16);
     ctx.fillStyle = 'rgba(255,255,255,0.055)';
     ctx.fill();

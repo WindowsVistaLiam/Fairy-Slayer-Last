@@ -2,6 +2,7 @@ const GuildConfig = require('../models/GuildConfig');
 const { getActiveProfile } = require('../utils/activeProfile');
 const { calculateMessageXp, applyXp } = require('../utils/xp');
 const { createLevelUpCanvas } = require('../canvas/levelUpCanvas');
+const { sendGuildLog } = require('../utils/guildConfig');
 
 const xpCooldowns = new Map();
 
@@ -21,8 +22,7 @@ module.exports = {
         { new: true, upsert: true },
       );
 
-      const rpChannelsConfigured = config.rpChannelIds.length > 0;
-      if (rpChannelsConfigured && !config.rpChannelIds.includes(message.channel.id)) return;
+      if (!config.rpChannelIds.length || !config.rpChannelIds.includes(message.channel.id)) return;
 
       const key = getCooldownKey(message.guild.id, message.author.id);
       const now = Date.now();
@@ -47,6 +47,11 @@ module.exports = {
           content: `✨ **${profile.characterName}** gagne en puissance !`,
           files: [attachment],
         });
+        await sendGuildLog(message.guild, 'Niveau RP gagné', [
+          `<@${message.author.id}> — **${profile.characterName}**`,
+          `Niveau atteint : **${profile.level}**`,
+          `XP du message : **${gainedXp}** dans <#${message.channel.id}>`,
+        ], 0xf7d078);
       }
     } catch (error) {
       console.error('❌ Erreur messageCreate XP :', error);
