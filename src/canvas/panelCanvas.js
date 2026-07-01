@@ -1,30 +1,19 @@
-const { createCanvas, GlobalFonts } = require('@napi-rs/canvas');
+const path = require('node:path');
+const fs = require('node:fs');
+const { createCanvas, GlobalFonts, loadImage } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
 
-function registerFonts() {
-  const fonts = [
-    ['C:/Windows/Fonts/segoeui.ttf', 'Segoe UI'],
-    ['C:/Windows/Fonts/segoeuib.ttf', 'Segoe UI Bold'],
-    ['C:/Windows/Fonts/arial.ttf', 'Arial'],
-    ['C:/Windows/Fonts/arialbd.ttf', 'Arial Bold'],
-    ['/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 'Segoe UI'],
-    ['/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 'Segoe UI Bold'],
-    ['/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf', 'Segoe UI'],
-    ['/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf', 'Segoe UI Bold'],
-  ];
+const FONT_TITLE_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'crown_title', 'CROWNT.TTF');
+const FONT_REGULAR_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Marcellus', 'Marcellus-Regular.ttf');
+const FONT_BOLD_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Cinzel', 'static', 'Cinzel-Bold.ttf');
 
-  for (const [path, name] of fonts) {
-    try {
-      GlobalFonts.registerFromPath(path, name);
-    } catch (_) {
-      // Police absente sur cet environnement : on ignore.
-    }
-  }
-}
+const LOGO_PATH = path.join(__dirname, '..', 'assets', 'fairy-slayer-logo.png');
 
-registerFonts();
+const FONT_TITLE = 'FairyPanelTitle';
+const FONT_REGULAR = 'FairyPanelRegular';
+const FONT_BOLD = 'FairyPanelBold';
 
-const FONT = 'Segoe UI, Arial, sans-serif';
+let fontsLoaded = false;
 
 const THEME = {
   profile: '#9b8cff',
@@ -33,27 +22,90 @@ const THEME = {
   relations: '#64d2a6',
   rumors: '#c084fc',
   reputation: '#ffdf91',
-  shop: '#f7d078',
+  shop: '#9b8cff',
   ranking: '#ffdf91',
   admin: '#ff6b6b',
   neutral: '#9b8cff',
 };
 
-const LABELS = {
-  profile: 'FICHE DE MAGE',
-  inventory: 'ARSENAL',
-  missions: 'TABLEAU DES REQUÊTES',
-  relations: 'LIENS RP',
-  rumors: 'MURMURES DE GUILDE',
-  reputation: 'RENOMMÉE',
-  shop: 'BOUTIQUE MAGIQUE',
-  ranking: 'PANNEAU DES LÉGENDES',
-  admin: 'CONSEIL DU STAFF',
-  neutral: 'FAIRY SLAYER',
-};
+function ensureFonts() {
+  if (fontsLoaded) return;
+  fontsLoaded = true;
+
+  try {
+    if (fs.existsSync(FONT_TITLE_PATH)) {
+      GlobalFonts.registerFromPath(FONT_TITLE_PATH, FONT_TITLE);
+      console.log('✅ Panel police Title chargée : CROWNT.TTF');
+    } else {
+      console.warn('⚠️ Panel police titre manquante : src/assets/fonts/crown_title/CROWNT.TTF');
+    }
+
+    if (fs.existsSync(FONT_REGULAR_PATH)) {
+      GlobalFonts.registerFromPath(FONT_REGULAR_PATH, FONT_REGULAR);
+      console.log('✅ Panel police Regular chargée : Marcellus-Regular.ttf');
+    } else {
+      console.warn('⚠️ Panel police regular manquante : src/assets/fonts/Marcellus/Marcellus-Regular.ttf');
+    }
+
+    if (fs.existsSync(FONT_BOLD_PATH)) {
+      GlobalFonts.registerFromPath(FONT_BOLD_PATH, FONT_BOLD);
+      console.log('✅ Panel police Bold chargée : Cinzel-Bold.ttf');
+    } else {
+      console.warn('⚠️ Panel police bold manquante : src/assets/fonts/Cinzel/static/Cinzel-Bold.ttf');
+    }
+  } catch (error) {
+    console.error('❌ Erreur chargement polices panel Canvas :', error);
+  }
+}
+
+function getFontFamily(style = 'regular') {
+  if (style === 'title') return FONT_TITLE;
+  if (style === 'bold') return FONT_BOLD;
+  return FONT_REGULAR;
+}
+
+function setFont(ctx, size = 24, style = 'regular') {
+  ensureFonts();
+
+  const family = getFontFamily(style);
+
+  ctx.font = `${size}px "${family}"`;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+}
+
+function drawText(ctx, text, x, y, size = 24, color = '#ffffff', style = 'regular', maxWidth = undefined) {
+  ctx.save();
+
+  ctx.fillStyle = color;
+  setFont(ctx, size, style);
+
+  const value = stripDiscordMarkdown(text);
+
+  if (typeof maxWidth === 'number') {
+    ctx.fillText(value, x, y, maxWidth);
+  } else {
+    ctx.fillText(value, x, y);
+  }
+
+  ctx.restore();
+}
+
+function drawCenteredText(ctx, text, x, y, width, size = 24, color = '#ffffff', style = 'regular') {
+  ctx.save();
+
+  ctx.fillStyle = color;
+  setFont(ctx, size, style);
+  ctx.textAlign = 'center';
+
+  ctx.fillText(stripDiscordMarkdown(text), x + width / 2, y);
+
+  ctx.restore();
+}
 
 function roundRect(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2);
+
   ctx.beginPath();
   ctx.moveTo(x + radius, y);
   ctx.arcTo(x + w, y, x + w, y + h, radius);
@@ -63,45 +115,27 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
-function setFont(ctx, size, bold = false) {
-  ctx.font = `${bold ? '700' : '400'} ${size}px ${FONT}`;
-}
-
-function drawText(ctx, text, x, y, size = 26, color = '#ffffff', bold = false, maxWidth = undefined) {
-  ctx.save();
-  ctx.fillStyle = color;
-  setFont(ctx, size, bold);
-  if (maxWidth) ctx.fillText(String(text || ''), x, y, maxWidth);
-  else ctx.fillText(String(text || ''), x, y);
-  ctx.restore();
-}
-
-function drawCenteredText(ctx, text, x, y, width, size = 26, color = '#ffffff', bold = false) {
-  ctx.save();
-  ctx.fillStyle = color;
-  setFont(ctx, size, bold);
-  ctx.textAlign = 'center';
-  ctx.fillText(String(text || ''), x + width / 2, y, width);
-  ctx.restore();
-}
-
 function stripDiscordMarkdown(text) {
   return String(text || '')
     .replace(/\*\*/g, '')
     .replace(/__/g, '')
     .replace(/`/g, '')
-    .replace(/<@!?(\d+)>/g, 'Utilisateur $1')
-    .replace(/<#(\d+)>/g, 'Salon $1');
+    .replace(/<@!?(\d+)>/g, 'Utilisateur')
+    .replace(/<#(\d+)>/g, 'Salon')
+    .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+    .replace(/·/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
 function wrapText(ctx, text, maxWidth, maxLines = 2) {
   const words = stripDiscordMarkdown(text).split(/\s+/).filter(Boolean);
   const lines = [];
   let current = '';
-  let consumed = 0;
 
   for (const word of words) {
     const candidate = current ? `${current} ${word}` : word;
+
     if (ctx.measureText(candidate).width <= maxWidth) {
       current = candidate;
     } else {
@@ -109,130 +143,177 @@ function wrapText(ctx, text, maxWidth, maxLines = 2) {
       current = word;
     }
 
-    consumed += 1;
     if (lines.length >= maxLines) break;
   }
 
-  if (lines.length < maxLines && current) lines.push(current);
+  if (lines.length < maxLines && current) {
+    lines.push(current);
+  }
 
-  if (lines.length === maxLines && consumed < words.length) {
-    lines[maxLines - 1] = `${lines[maxLines - 1].replace(/\s+$/u, '')}…`;
+  if (lines.length === maxLines) {
+    const consumed = lines.join(' ').split(/\s+/).length;
+
+    if (consumed < words.length) {
+      lines[maxLines - 1] = `${lines[maxLines - 1].replace(/\s+$/u, '')}…`;
+    }
   }
 
   return lines;
 }
 
-function drawGlow(ctx, x, y, radius, color, alpha) {
+async function loadLocalImage(filePath) {
+  try {
+    if (!fs.existsSync(filePath)) return null;
+    return await loadImage(filePath);
+  } catch (error) {
+    console.warn(`⚠️ Image locale impossible à charger : ${filePath}`, error.message);
+    return null;
+  }
+}
+
+function drawGlow(ctx, x, y, radius, color, alpha = 0.22) {
+  ctx.save();
+
   const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
   gradient.addColorStop(0, color);
   gradient.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.save();
+
   ctx.globalAlpha = alpha;
   ctx.fillStyle = gradient;
+
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
   ctx.fill();
+
   ctx.restore();
 }
 
 function drawMagicCircle(ctx, x, y, radius, color) {
   ctx.save();
+
   ctx.translate(x, y);
   ctx.strokeStyle = color;
-  ctx.globalAlpha = 0.33;
-  ctx.lineWidth = 3;
+  ctx.globalAlpha = 0.13;
+  ctx.lineWidth = 2;
 
   ctx.beginPath();
   ctx.arc(0, 0, radius, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.beginPath();
-  ctx.arc(0, 0, radius * 0.68, 0, Math.PI * 2);
+  ctx.arc(0, 0, radius * 0.72, 0, Math.PI * 2);
   ctx.stroke();
 
   ctx.beginPath();
-  for (let i = 0; i < 8; i += 1) {
-    const angle = (Math.PI * 2 * i) / 8;
-    const x1 = Math.cos(angle) * radius * 0.7;
-    const y1 = Math.sin(angle) * radius * 0.7;
-    const x2 = Math.cos(angle + 0.35) * radius;
-    const y2 = Math.sin(angle + 0.35) * radius;
-    ctx.moveTo(x1, y1);
-    ctx.lineTo(x2, y2);
+  for (let i = 0; i < 6; i += 1) {
+    const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
+    const px = Math.cos(angle) * radius * 0.72;
+    const py = Math.sin(angle) * radius * 0.72;
+
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
   }
+
+  ctx.closePath();
   ctx.stroke();
 
   ctx.restore();
 }
 
-function drawGuildCrest(ctx, x, y, scale, color = '#f7d078') {
+function drawCornerLines(ctx, x, y, w, h, color) {
   ctx.save();
-  ctx.translate(x, y);
-  ctx.scale(scale, scale);
 
-  ctx.shadowColor = color;
-  ctx.shadowBlur = 18;
-  ctx.fillStyle = color;
-  ctx.strokeStyle = 'rgba(255,255,255,0.65)';
-  ctx.lineWidth = 4;
+  ctx.strokeStyle = color;
+  ctx.globalAlpha = 0.75;
+  ctx.lineWidth = 3;
+
+  const size = 78;
 
   ctx.beginPath();
-  ctx.moveTo(0, -64);
-  ctx.bezierCurveTo(38, -54, 58, -22, 35, 8);
-  ctx.bezierCurveTo(74, 7, 90, 32, 61, 56);
-  ctx.bezierCurveTo(27, 80, -5, 58, -9, 23);
-  ctx.bezierCurveTo(-31, 55, -73, 55, -86, 24);
-  ctx.bezierCurveTo(-99, -7, -66, -25, -31, -12);
-  ctx.bezierCurveTo(-39, -46, -23, -72, 0, -64);
-  ctx.closePath();
-  ctx.fill();
+  ctx.moveTo(x, y + size);
+  ctx.lineTo(x, y);
+  ctx.lineTo(x + size, y);
   ctx.stroke();
 
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = '#15162a';
   ctx.beginPath();
-  ctx.arc(-6, 9, 13, 0, Math.PI * 2);
-  ctx.fill();
+  ctx.moveTo(x + w - size, y);
+  ctx.lineTo(x + w, y);
+  ctx.lineTo(x + w, y + size);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x, y + h - size);
+  ctx.lineTo(x, y + h);
+  ctx.lineTo(x + size, y + h);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(x + w - size, y + h);
+  ctx.lineTo(x + w, y + h);
+  ctx.lineTo(x + w, y + h - size);
+  ctx.stroke();
 
   ctx.restore();
 }
 
 function drawStat(ctx, stat, x, y, w, accent) {
-  roundRect(ctx, x, y, w, 82, 20);
-  ctx.fillStyle = 'rgba(255,255,255,0.065)';
+  const h = 86;
+
+  roundRect(ctx, x, y, w, h, 18);
+  ctx.fillStyle = 'rgba(13, 18, 34, 0.88)';
   ctx.fill();
-  ctx.strokeStyle = `${accent}cc`;
+
+  ctx.strokeStyle = `${accent}dd`;
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, stat.label, x + 18, y + 31, 17, '#c9bdf7', true, w - 36);
-  drawText(ctx, stat.value, x + 18, y + 64, 26, '#ffffff', true, w - 36);
+  drawText(ctx, stat.label, x + 18, y + 15, 16, '#cec6f6', 'bold', w - 36);
+  drawText(ctx, stat.value, x + 18, y + 43, 28, '#ffffff', 'bold', w - 36);
 }
 
-function drawContentLine(ctx, rawLine, x, y, maxWidth, accent) {
-  const line = stripDiscordMarkdown(rawLine);
-  const isLocked = line.toLowerCase().includes('verrouillé');
-  const isAvailable = line.toLowerCase().includes('disponible');
-
-  roundRect(ctx, x, y - 26, maxWidth, 54, 17);
-  ctx.fillStyle = isLocked ? 'rgba(255, 107, 107, 0.075)' : 'rgba(255,255,255,0.052)';
+function drawLineItem(ctx, line, x, y, w, accent) {
+  roundRect(ctx, x, y, w, 60, 16);
+  ctx.fillStyle = 'rgba(255,255,255,0.045)';
   ctx.fill();
-  ctx.strokeStyle = isLocked ? 'rgba(255, 107, 107, 0.33)' : 'rgba(255,255,255,0.095)';
-  ctx.lineWidth = 1.5;
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+  ctx.lineWidth = 2;
   ctx.stroke();
 
-  const bulletColor = isLocked ? '#ff6b6b' : isAvailable ? '#64d2a6' : accent;
-  ctx.fillStyle = bulletColor;
+  ctx.fillStyle = accent;
   ctx.beginPath();
-  ctx.arc(x + 24, y, 7, 0, Math.PI * 2);
+  ctx.arc(x + 24, y + 30, 7, 0, Math.PI * 2);
   ctx.fill();
 
-  setFont(ctx, 22, false);
-  const wrapped = wrapText(ctx, line, maxWidth - 62, 1);
-  drawText(ctx, wrapped[0] || line, x + 44, y + 7, 22, '#f4f1ff', false, maxWidth - 62);
+  setFont(ctx, 22, 'regular');
+
+  const wrapped = wrapText(ctx, line, w - 72, 1);
+
+  drawText(ctx, wrapped[0] || '', x + 48, y + 17, 22, '#f4f1ff', 'regular', w - 72);
+}
+
+async function drawLogo(ctx, width, height) {
+  const logo = await loadLocalImage(LOGO_PATH);
+
+  if (!logo) {
+    console.warn('⚠️ Logo panel manquant : src/assets/fairy-slayer-logo.png');
+    return;
+  }
+
+  ctx.save();
+  ctx.globalAlpha = 0.96;
+  ctx.drawImage(logo, width - 210, 94, 110, 110);
+  ctx.restore();
+
+  ctx.save();
+  ctx.globalAlpha = 0.055;
+  ctx.drawImage(logo, width - 470, 265, 310, 310);
+  ctx.restore();
 }
 
 async function createPanelCanvas(options) {
+  ensureFonts();
+
   const {
     fileName = 'fairy-slayer-panel.png',
     section = 'Fairy Slayer',
@@ -244,147 +325,153 @@ async function createPanelCanvas(options) {
     variant = 'neutral',
   } = options;
 
-  const width = 1300;
-  const height = 760;
+  const width = 1400;
+  const height = 820;
   const accent = THEME[variant] || THEME.neutral;
+
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
 
+  // Fond général
   const background = ctx.createLinearGradient(0, 0, width, height);
-  background.addColorStop(0, '#100719');
-  background.addColorStop(0.36, '#1b1641');
-  background.addColorStop(0.72, '#10182f');
-  background.addColorStop(1, '#35101e');
+  background.addColorStop(0, '#13081d');
+  background.addColorStop(0.35, '#1f1438');
+  background.addColorStop(0.68, '#111b2e');
+  background.addColorStop(1, '#41151f');
+
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, width, height);
 
-  drawGlow(ctx, 190, 110, 290, accent, 0.27);
-  drawGlow(ctx, 1080, 130, 260, '#f7d078', 0.18);
-  drawGlow(ctx, 1120, 650, 330, '#ff6b3d', 0.16);
+  drawGlow(ctx, 170, 105, 260, accent, 0.22);
+  drawGlow(ctx, 1190, 725, 340, '#ff7a4e', 0.13);
+  drawGlow(ctx, 1050, 130, 300, '#ffdf91', 0.10);
 
-  drawMagicCircle(ctx, 1025, 205, 125, '#f7d078');
-  drawMagicCircle(ctx, 205, 620, 105, accent);
+  // Particules
+  for (let i = 0; i < 80; i += 1) {
+    const x = Math.random() * width;
+    const y = Math.random() * height;
+    const r = 0.8 + Math.random() * 2.4;
 
-  for (let i = 0; i < 64; i += 1) {
-    const x = 70 + ((i * 331) % 1160);
-    const y = 64 + ((i * 197) % 630);
-    ctx.globalAlpha = 0.12 + ((i % 7) * 0.035);
+    ctx.save();
+    ctx.globalAlpha = 0.12 + Math.random() * 0.35;
+    ctx.fillStyle = i % 3 === 0 ? '#ffdf91' : '#efe9ff';
+
     ctx.beginPath();
-    ctx.arc(x, y, 1.7 + (i % 4) * 0.75, 0, Math.PI * 2);
-    ctx.fillStyle = i % 3 === 0 ? '#f7d078' : '#efe9ff';
+    ctx.arc(x, y, r, 0, Math.PI * 2);
     ctx.fill();
-  }
-  ctx.globalAlpha = 1;
 
-  ctx.save();
-  ctx.shadowColor = 'rgba(0, 0, 0, 0.64)';
-  ctx.shadowBlur = 32;
-  roundRect(ctx, 48, 48, width - 96, height - 96, 36);
-  ctx.fillStyle = 'rgba(8, 12, 24, 0.88)';
+    ctx.restore();
+  }
+
+  drawMagicCircle(ctx, 1180, 230, 120, '#ffdf91');
+  drawMagicCircle(ctx, 200, 705, 110, accent);
+
+  // Cadre principal
+  roundRect(ctx, 50, 50, width - 100, height - 100, 36);
+  ctx.fillStyle = 'rgba(8, 12, 24, 0.86)';
   ctx.fill();
-  ctx.shadowBlur = 0;
+
   ctx.strokeStyle = accent;
   ctx.lineWidth = 4;
   ctx.stroke();
-  ctx.strokeStyle = 'rgba(247, 208, 120, 0.46)';
+
+  roundRect(ctx, 72, 72, width - 144, height - 144, 28);
+  ctx.strokeStyle = 'rgba(255, 207, 99, 0.45)';
   ctx.lineWidth = 2;
-  roundRect(ctx, 68, 68, width - 136, height - 136, 28);
   ctx.stroke();
-  ctx.restore();
 
-  const headerGradient = ctx.createLinearGradient(84, 82, width - 84, 182);
-  headerGradient.addColorStop(0, 'rgba(124, 92, 255, 0.55)');
-  headerGradient.addColorStop(0.58, 'rgba(247, 208, 120, 0.20)');
-  headerGradient.addColorStop(1, 'rgba(255, 107, 61, 0.42)');
+  drawCornerLines(ctx, 80, 80, width - 160, height - 160, '#ffdf91');
 
-  roundRect(ctx, 84, 82, width - 168, 116, 28);
+  // Header
+  const headerGradient = ctx.createLinearGradient(90, 88, width - 90, 200);
+  headerGradient.addColorStop(0, 'rgba(127, 92, 255, 0.48)');
+  headerGradient.addColorStop(0.58, 'rgba(255, 207, 99, 0.14)');
+  headerGradient.addColorStop(1, 'rgba(255, 122, 78, 0.36)');
+
+  roundRect(ctx, 90, 88, width - 180, 120, 26);
   ctx.fillStyle = headerGradient;
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, 'FAIRY SLAYER', 112, 126, 25, '#f7d078', true);
-  drawText(ctx, stripDiscordMarkdown(section).toUpperCase(), 112, 174, 41, '#ffffff', true, 660);
+  drawText(ctx, 'FAIRY SLAYER', 120, 98, 34, '#ffcf63', 'title');
+  drawText(ctx, stripDiscordMarkdown(section).toUpperCase(), 120, 140, 36, '#ffffff', 'bold', 560);
 
-  drawText(ctx, LABELS[variant] || LABELS.neutral, 735, 126, 24, accent, true, 350);
-  drawText(ctx, stripDiscordMarkdown(title), 735, 165, 29, '#ffffff', true, 360);
-  if (subtitle) drawText(ctx, stripDiscordMarkdown(subtitle), 735, 190, 18, '#e8e7ff', false, 360);
+  drawText(ctx, stripDiscordMarkdown(title), 735, 110, 28, accent, 'bold', 400);
 
-  drawGuildCrest(ctx, 1152, 140, 0.42, '#f7d078');
-
-  const visibleStats = stats.slice(0, 4);
-  if (visibleStats.length) {
-    const gap = 18;
-    const statW = Math.floor((width - 168 - (gap * (visibleStats.length - 1))) / visibleStats.length);
-    visibleStats.forEach((stat, index) => drawStat(ctx, stat, 84 + index * (statW + gap), 224, statW, accent));
+  if (subtitle) {
+    drawText(ctx, stripDiscordMarkdown(subtitle), 735, 148, 19, '#e8e7ff', 'regular', 390);
   }
 
-  const contentY = visibleStats.length ? 334 : 228;
-  const contentH = visibleStats.length ? 296 : 402;
-  roundRect(ctx, 84, contentY, width - 168, contentH, 26);
+  await drawLogo(ctx, width, height);
+
+  // Stats
+  const visibleStats = Array.isArray(stats) ? stats.slice(0, 4) : [];
+  const hasStats = visibleStats.length > 0;
+
+  if (hasStats) {
+    const statY = 238;
+    const gap = 20;
+    const totalW = width - 180;
+    const statW = Math.floor((totalW - gap * (visibleStats.length - 1)) / visibleStats.length);
+
+    visibleStats.forEach((stat, index) => {
+      drawStat(ctx, stat, 90 + index * (statW + gap), statY, statW, accent);
+    });
+  }
+
+  // Contenu
+  const contentX = 90;
+  const contentY = hasStats ? 360 : 250;
+  const contentW = width - 180;
+  const contentH = hasStats ? 300 : 410;
+
+  roundRect(ctx, contentX, contentY, contentW, contentH, 26);
   ctx.fillStyle = 'rgba(255,255,255,0.045)';
   ctx.fill();
+
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  const cleanLines = lines.length ? lines : ['Aucune donnée à afficher pour l’instant.'];
-  let cursorY = contentY + 48;
-  const maxY = contentY + contentH - 32;
-  const lineBoxH = 64;
+  const cleanLines = Array.isArray(lines) && lines.length
+    ? lines
+    : ['Aucune donnée à afficher pour l’instant.'];
+
+  let cursorY = contentY + 30;
+  const maxY = contentY + contentH - 70;
+  const lineGap = 14;
 
   for (const rawLine of cleanLines) {
     if (cursorY > maxY) break;
-    drawContentLine(ctx, rawLine, 112, cursorY, width - 224, accent);
-    cursorY += lineBoxH;
+
+    const wrapped = wrapText(ctx, rawLine, contentW - 100, 1);
+    const line = wrapped[0] || '';
+
+    drawLineItem(ctx, line, contentX + 30, cursorY, contentW - 60, accent);
+
+    cursorY += 60 + lineGap;
   }
 
-  if (cleanLines.length > Math.floor((contentH - 48) / lineBoxH)) {
-    drawCenteredText(ctx, '…', 84, contentY + contentH - 24, width - 168, 28, accent, true);
-  }
-
+  // Footer, bien remonté dans le cadre
   if (footer) {
-    roundRect(ctx, 84, 666, width - 168, 44, 18);
-    ctx.fillStyle = 'rgba(255,255,255,0.06)';
+    const footerY = 685;
+
+    roundRect(ctx, 90, footerY, width - 180, 48, 16);
+    ctx.fillStyle = 'rgba(255,255,255,0.055)';
     ctx.fill();
-    ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+
+    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
     ctx.stroke();
-    drawText(ctx, stripDiscordMarkdown(footer), 112, 696, 19, '#cfc8ff', false, width - 224);
+
+    drawText(ctx, stripDiscordMarkdown(footer), 120, footerY + 13, 19, '#cfc8ff', 'regular', width - 240);
   }
 
-  ctx.save();
-  ctx.strokeStyle = '#f7d078';
-  ctx.lineWidth = 4;
-  ctx.globalAlpha = 0.82;
-
-  ctx.beginPath();
-  ctx.moveTo(78, 144);
-  ctx.lineTo(78, 78);
-  ctx.lineTo(150, 78);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(width - 78, 144);
-  ctx.lineTo(width - 78, 78);
-  ctx.lineTo(width - 150, 78);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(78, height - 144);
-  ctx.lineTo(78, height - 78);
-  ctx.lineTo(150, height - 78);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(width - 78, height - 144);
-  ctx.lineTo(width - 78, height - 78);
-  ctx.lineTo(width - 150, height - 78);
-  ctx.stroke();
-
-  ctx.restore();
-
-  return new AttachmentBuilder(await canvas.encode('png'), { name: fileName });
+  return new AttachmentBuilder(await canvas.encode('png'), {
+    name: fileName,
+  });
 }
 
 module.exports = { createPanelCanvas };

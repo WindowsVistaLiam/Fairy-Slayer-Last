@@ -481,26 +481,26 @@ async function createProfileCanvas(profile, discordUser) {
   drawBar(ctx, 496, 626, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
 
   // Description
-  roundRect(ctx, 100, 700, 720, 78, 18);
+  roundRect(ctx, 100, 680, 720, 70, 18);
   ctx.fillStyle = 'rgba(255,255,255,0.06)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.10)';
   ctx.stroke();
 
-  drawText(ctx, 'DESCRIPTION', 122, 712, 16, '#cec6f6', 'bold');
-  drawWrappedText(ctx, description, 122, 736, 675, 22, 2, 19, '#ffffff');
+  drawText(ctx, 'DESCRIPTION', 122, 692, 16, '#cec6f6', 'bold');
+  drawWrappedText(ctx, description, 122, 716, 675, 20, 2, 18, '#ffffff');
 
   // Stats bas
-  drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 700, 180, 78, '#ffcf63');
+  drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 680, 180, 70, '#ffcf63');
 
   drawInfoBox(
     ctx,
     'RÉPUTATION',
     `${reputation} · ${getReputationLabel(reputation)}`,
-    1050,
-    700,
-    210,
-    78,
+      1050,
+      680,
+      210,
+      70,
     '#7f5cff',
   );
 
