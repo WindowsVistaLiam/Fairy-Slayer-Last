@@ -108,6 +108,8 @@ function getMainRows() {
   ];
 }
 
+
+
 function getNoProfileRows() {
   return [
     new ActionRowBuilder().addComponents(
@@ -539,7 +541,86 @@ async function handleImageModal(interaction) {
   return openProfileHub(interaction);
 }
 
-async function showInventory(interaction) {
+function getInventoryCategoryLabel(category = 'all') {
+  const labels = {
+    all: 'Tout l’inventaire',
+    consommable: 'Consommables',
+    equipement: 'Équipements',
+    lacrima: 'Lacrimas',
+    rare: 'Objets rares',
+    mission: 'Objets de mission',
+  };
+
+  return labels[category] || 'Tout l’inventaire';
+}
+
+function getInventoryCategoryRows(activeCategory = 'all') {
+  const getStyle = (category) => (
+    activeCategory === category ? ButtonStyle.Primary : ButtonStyle.Secondary
+  );
+
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('profile:inventory:all')
+        .setLabel('Tout')
+        .setEmoji('🎒')
+        .setStyle(getStyle('all')),
+
+      new ButtonBuilder()
+        .setCustomId('profile:inventory:consommable')
+        .setLabel('Consommables')
+        .setEmoji('🧪')
+        .setStyle(getStyle('consommable')),
+
+      new ButtonBuilder()
+        .setCustomId('profile:inventory:equipement')
+        .setLabel('Équipements')
+        .setEmoji('🛡️')
+        .setStyle(getStyle('equipement')),
+
+      new ButtonBuilder()
+        .setCustomId('profile:inventory:lacrima')
+        .setLabel('Lacrimas')
+        .setEmoji('💠')
+        .setStyle(getStyle('lacrima')),
+    ),
+
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('profile:inventory:rare')
+        .setLabel('Rares')
+        .setEmoji('💎')
+        .setStyle(getStyle('rare')),
+
+      new ButtonBuilder()
+        .setCustomId('profile:inventory:mission')
+        .setLabel('Mission')
+        .setEmoji('📜')
+        .setStyle(getStyle('mission')),
+
+      new ButtonBuilder()
+        .setCustomId('profile:home')
+        .setLabel('Retour profil')
+        .setEmoji('↩️')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
+function filterInventoryItems(items, category = 'all') {
+  if (category === 'all') return items;
+
+  return items.filter((item) => item.type === category);
+}
+
+function countInventoryType(items, type) {
+  return items
+    .filter((item) => item.type === type)
+    .reduce((total, item) => total + Number(item.quantity || 0), 0);
+}
+
+async function showInventory(interaction, category = 'all') {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
   if (!profile) {
@@ -547,7 +628,18 @@ async function showInventory(interaction) {
   }
 
   const summary = await getInventorySummary(profile._id);
-  const lines = formatInventoryLines(summary.items, 8);
+  const filteredItems = filterInventoryItems(summary.items, category);
+  const lines = formatInventoryLines(filteredItems, 8);
+
+  const filteredQuantity = filteredItems.reduce(
+    (total, item) => total + Number(item.quantity || 0),
+    0,
+  );
+
+  const filteredValue = filteredItems.reduce(
+    (total, item) => total + Number(item.sellPrice || 0) * Number(item.quantity || 0),
+    0,
+  );
 
   const fileName = 'fairy-slayer-inventaire.png';
 
@@ -555,21 +647,21 @@ async function showInventory(interaction) {
     fileName,
     variant: 'inventory',
     section: `Inventaire — ${profile.characterName}`,
-    title: `${formatNumber(summary.totalQuantity)} objet(s) possédé(s)`,
-    subtitle: `Valeur de revente estimée : ${formatNumber(summary.totalValue)} Jewels`,
+    title: getInventoryCategoryLabel(category),
+    subtitle: `${formatNumber(filteredQuantity)} objet(s) affiché(s) - valeur : ${formatNumber(filteredValue)} Jewels`,
     stats: [
-      { label: 'Jewels', value: formatNumber(profile.jewels) },
-      { label: 'Objets', value: formatNumber(summary.totalQuantity) },
-      { label: 'Équipements', value: formatNumber(summary.byType.equipement || 0) },
-      { label: 'Lacrimas', value: formatNumber(summary.byType.lacrima || 0) },
+      { label: 'Total', value: formatNumber(summary.totalQuantity) },
+      { label: 'Consommables', value: formatNumber(countInventoryType(summary.items, 'consommable')) },
+      { label: 'Équipements', value: formatNumber(countInventoryType(summary.items, 'equipement')) },
+      { label: 'Lacrimas', value: formatNumber(countInventoryType(summary.items, 'lacrima')) },
     ],
     lines,
-    footer: 'Menu /profil · Inventaire réel du personnage actif',
+    footer: `Menu /profil - Inventaire - ${getInventoryCategoryLabel(category)}`,
   });
 
   return interaction.update({
     embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
-    components: getMainRows(),
+    components: getInventoryCategoryRows(category),
     files: [attachment],
   });
 }

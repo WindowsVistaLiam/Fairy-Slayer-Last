@@ -77,7 +77,15 @@ async function handleComponentInteraction(interaction) {
   if (id === 'profile:home') return profileHub.openProfileHub(interaction);
   if (id === 'profile:create') return profileHub.showCreateModal(interaction);
   if (id === 'profile:switch') return profileHub.showSwitchMenu(interaction);
-  if (id === 'profile:inventory') return profileHub.showInventory(interaction);
+
+if (id === 'profile:inventory') return profileHub.showInventory(interaction, 'all');
+if (id === 'profile:inventory:all') return profileHub.showInventory(interaction, 'all');
+if (id === 'profile:inventory:consommable') return profileHub.showInventory(interaction, 'consommable');
+if (id === 'profile:inventory:equipement') return profileHub.showInventory(interaction, 'equipement');
+if (id === 'profile:inventory:lacrima') return profileHub.showInventory(interaction, 'lacrima');
+if (id === 'profile:inventory:rare') return profileHub.showInventory(interaction, 'rare');
+if (id === 'profile:inventory:mission') return profileHub.showInventory(interaction, 'mission');
+
   if (id === 'profile:missions') return profileHub.showMissions(interaction);
   if (id === 'profile:relations') return profileHub.showRelations(interaction);
   if (id === 'profile:rumors') return profileHub.showRumors(interaction);
