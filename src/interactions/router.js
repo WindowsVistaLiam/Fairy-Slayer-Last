@@ -1,3 +1,5 @@
+const { MessageFlags } = require('discord.js');
+
 const profileHub = require('../features/profile/profileHub');
 const shopHub = require('../features/shop/shopHub');
 const rankingHub = require('../features/ranking/rankingHub');
@@ -20,6 +22,23 @@ function disableMessageComponents(message) {
   });
 }
 
+async function safeEphemeralReply(interaction, content) {
+  const payload = {
+    content,
+    flags: MessageFlags.Ephemeral,
+  };
+
+  try {
+    if (interaction.replied || interaction.deferred) {
+      return await interaction.followUp(payload);
+    }
+
+    return await interaction.reply(payload);
+  } catch (_) {
+    return null;
+  }
+}
+
 async function isExpiredProfileInteraction(interaction) {
   if (!interaction.customId?.startsWith('profile:')) return false;
   if (!interaction.message?.createdTimestamp) return false;
@@ -29,17 +48,21 @@ async function isExpiredProfileInteraction(interaction) {
   if (age < PROFILE_MENU_TIMEOUT_MS) return false;
 
   try {
-    await interaction.message.edit({
-      components: disableMessageComponents(interaction.message),
-    });
+    const disabledComponents = disableMessageComponents(interaction.message);
+
+    if (disabledComponents.length) {
+      await interaction.message.edit({
+        components: disabledComponents,
+      });
+    }
   } catch (_) {
-    // Si le message ne peut pas être édité, on ignore.
+    // Message supprimé, déjà modifié, ou impossible à éditer.
   }
 
-  await interaction.reply({
-    content: 'Ce menu `/profil` a expiré. Relance simplement `/profil` pour ouvrir un nouveau menu.',
-    ephemeral: true,
-  }).catch(() => null);
+  await safeEphemeralReply(
+    interaction,
+    'Ce menu `/profil` a expiré. Relance simplement `/profil` pour ouvrir un nouveau menu.',
+  );
 
   return true;
 }
@@ -47,7 +70,9 @@ async function isExpiredProfileInteraction(interaction) {
 async function handleComponentInteraction(interaction) {
   const id = interaction.customId;
 
-  if (await isExpiredProfileInteraction(interaction)) return null;
+  if (await isExpiredProfileInteraction(interaction)) {
+    return null;
+  }
 
   if (id === 'profile:home') return profileHub.openProfileHub(interaction);
   if (id === 'profile:create') return profileHub.showCreateModal(interaction);
@@ -65,10 +90,7 @@ async function handleComponentInteraction(interaction) {
   if (id.startsWith('ranking:')) return rankingHub.handleRankingComponent(interaction);
   if (id.startsWith('admin:')) return adminHub.handleAdminComponent(interaction);
 
-  return interaction.reply({
-    content: 'Interaction inconnue.',
-    ephemeral: true,
-  });
+  return safeEphemeralReply(interaction, 'Interaction inconnue.');
 }
 
 async function handleModalInteraction(interaction) {
@@ -77,12 +99,10 @@ async function handleModalInteraction(interaction) {
   if (id === 'profile:create:modal') return profileHub.handleCreateModal(interaction);
   if (id === 'profile:edit:modal') return profileHub.handleEditModal(interaction);
   if (id === 'profile:image:modal') return profileHub.handleImageModal(interaction);
+
   if (id.startsWith('admin:')) return adminHub.handleAdminModal(interaction);
 
-  return interaction.reply({
-    content: 'Formulaire inconnu.',
-    ephemeral: true,
-  });
+  return safeEphemeralReply(interaction, 'Formulaire inconnu.');
 }
 
 module.exports = {
