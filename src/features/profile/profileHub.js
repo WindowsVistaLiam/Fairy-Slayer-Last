@@ -16,12 +16,22 @@ const ProfileMission = require('../../models/ProfileMission');
 const Relation = require('../../models/Relation');
 const Rumor = require('../../models/Rumor');
 const ReputationLog = require('../../models/ReputationLog');
+
 const { createProfileCanvas } = require('../../canvas/profileCanvas');
 const { createPanelCanvas } = require('../../canvas/panelCanvas');
-const { getOrCreatePlayer, getActiveProfile, setActiveProfile, countProfiles } = require('../../utils/activeProfile');
+
+const {
+  getOrCreatePlayer,
+  getActiveProfile,
+  setActiveProfile,
+  countProfiles,
+} = require('../../utils/activeProfile');
+
 const { normalizeMageRank } = require('../../utils/ranks');
 const { getReputationLabel } = require('../../utils/reputation');
 const { formatNumber, truncateText } = require('../../utils/format');
+
+const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
 
 function createCanvasEmbed(fileName, color = 0x7c5cff) {
   return new EmbedBuilder()
@@ -32,19 +42,63 @@ function createCanvasEmbed(fileName, color = 0x7c5cff) {
 function getMainRows() {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('profile:home').setLabel('Profil').setEmoji('👤').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('profile:inventory').setLabel('Inventaire').setEmoji('🎒').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('profile:missions').setLabel('Missions').setEmoji('📜').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('profile:relations').setLabel('Relations').setEmoji('🤝').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('profile:home')
+        .setLabel('Profil')
+        .setEmoji('👤')
+        .setStyle(ButtonStyle.Primary),
+
+      new ButtonBuilder()
+        .setCustomId('profile:inventory')
+        .setLabel('Inventaire')
+        .setEmoji('🎒')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('profile:missions')
+        .setLabel('Missions')
+        .setEmoji('📜')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('profile:relations')
+        .setLabel('Relations')
+        .setEmoji('🤝')
+        .setStyle(ButtonStyle.Secondary),
     ),
+
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('profile:rumors').setLabel('Rumeurs').setEmoji('🗣️').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('profile:reputation').setLabel('Réputation').setEmoji('⭐').setStyle(ButtonStyle.Secondary),
-      new ButtonBuilder().setCustomId('profile:switch').setLabel('Changer').setEmoji('🔁').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('profile:edit').setLabel('Modifier').setEmoji('⚙️').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('profile:rumors')
+        .setLabel('Rumeurs')
+        .setEmoji('🗣️')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('profile:reputation')
+        .setLabel('Réputation')
+        .setEmoji('⭐')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('profile:switch')
+        .setLabel('Changer')
+        .setEmoji('🔁')
+        .setStyle(ButtonStyle.Success),
+
+      new ButtonBuilder()
+        .setCustomId('profile:edit')
+        .setLabel('Modifier')
+        .setEmoji('⚙️')
+        .setStyle(ButtonStyle.Secondary),
     ),
+
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('profile:image').setLabel('Modifier l’image').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('profile:image')
+        .setLabel('Modifier l’image')
+        .setEmoji('🖼️')
+        .setStyle(ButtonStyle.Secondary),
     ),
   ];
 }
@@ -52,9 +106,40 @@ function getMainRows() {
 function getNoProfileRows() {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('profile:create').setLabel('Créer mon premier personnage').setEmoji('✨').setStyle(ButtonStyle.Success),
+      new ButtonBuilder()
+        .setCustomId('profile:create')
+        .setLabel('Créer mon premier personnage')
+        .setEmoji('✨')
+        .setStyle(ButtonStyle.Success),
     ),
   ];
+}
+
+function disableRows(rows) {
+  return rows.map((row) => {
+    const rawRow = row.toJSON();
+
+    rawRow.components = rawRow.components.map((component) => ({
+      ...component,
+      disabled: true,
+    }));
+
+    return rawRow;
+  });
+}
+
+function scheduleProfileMenuExpiration(message, rows) {
+  if (!message || !rows?.length) return;
+
+  setTimeout(async () => {
+    try {
+      await message.edit({
+        components: disableRows(rows),
+      });
+    } catch (_) {
+      // Message supprimé, déjà expiré, bot redémarré, ou interaction devenue inaccessible.
+    }
+  }, PROFILE_MENU_TIMEOUT_MS);
 }
 
 function isValidHttpUrl(value) {
@@ -71,42 +156,62 @@ function isValidHttpUrl(value) {
 async function replyOrUpdate(interaction, payload) {
   if (interaction.isButton() || interaction.isStringSelectMenu()) {
     const { ephemeral, ...updatePayload } = payload;
-    return interaction.update(updatePayload);
+
+    await interaction.update(updatePayload);
+
+    return interaction.message;
   }
 
   if (interaction.replied || interaction.deferred) {
-    return interaction.editReply(payload);
+    await interaction.editReply(payload);
+
+    return interaction.fetchReply().catch(() => null);
   }
 
-  return interaction.reply(payload);
+  await interaction.reply(payload);
+
+  return interaction.fetchReply().catch(() => null);
 }
 
 async function openProfileHub(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
   if (!profile) {
+    const rows = getNoProfileRows();
+
     const embed = new EmbedBuilder()
       .setColor(0x7c5cff)
       .setTitle('Fairy Slayer — Aucun personnage actif')
-      .setDescription('Tu n’as pas encore de personnage. Crée ton premier profil RP pour commencer à gagner de l’XP, des Jewels et utiliser les menus du bot.');
+      .setDescription(
+        'Tu n’as pas encore de personnage. Crée ton premier profil RP pour commencer à gagner de l’XP, des Jewels et utiliser les menus du bot.',
+      );
 
-    return replyOrUpdate(interaction, {
+    const message = await replyOrUpdate(interaction, {
       embeds: [embed],
-      components: getNoProfileRows(),
+      components: rows,
       files: [],
       ephemeral: true,
     });
+
+    scheduleProfileMenuExpiration(message, rows);
+
+    return message;
   }
 
+  const rows = getMainRows();
   const fileName = 'fairy-slayer-profil.png';
   const attachment = await createProfileCanvas(profile, interaction.user);
 
-  return replyOrUpdate(interaction, {
+  const message = await replyOrUpdate(interaction, {
     embeds: [createCanvasEmbed(fileName)],
-    components: getMainRows(),
+    components: rows,
     files: [attachment],
     ephemeral: false,
   });
+
+  scheduleProfileMenuExpiration(message, rows);
+
+  return message;
 }
 
 async function showCreateModal(interaction) {
@@ -180,8 +285,12 @@ async function handleCreateModal(interaction) {
   const age = interaction.fields.getTextInputValue('age')?.trim() || 'Inconnu';
   const magicType = interaction.fields.getTextInputValue('magicType').trim();
   const mageRank = normalizeMageRank(interaction.fields.getTextInputValue('mageRank'));
+
   const rawPower = interaction.fields.getTextInputValue('powerLevel')?.trim();
-  const powerLevel = Math.max(0, Math.min(999999, Number.parseInt(rawPower || '100', 10) || 100));
+  const powerLevel = Math.max(
+    0,
+    Math.min(999999, Number.parseInt(rawPower || '100', 10) || 100),
+  );
 
   const profile = await Profile.create({
     userId: interaction.user.id,
@@ -193,7 +302,11 @@ async function handleCreateModal(interaction) {
     powerLevel,
   });
 
-  await Inventory.create({ profileId: profile._id, items: [] });
+  await Inventory.create({
+    profileId: profile._id,
+    items: [],
+  });
+
   await setActiveProfile(interaction.user.id, interaction.guildId, profile._id);
 
   return openProfileHub(interaction);
@@ -203,7 +316,9 @@ async function showSwitchMenu(interaction) {
   const profiles = await Profile.find({
     userId: interaction.user.id,
     guildId: interaction.guildId,
-  }).sort({ createdAt: 1 }).limit(25);
+  })
+    .sort({ createdAt: 1 })
+    .limit(25);
 
   if (!profiles.length) {
     return openProfileHub(interaction);
@@ -211,7 +326,9 @@ async function showSwitchMenu(interaction) {
 
   const options = profiles.map((profile) => new StringSelectMenuOptionBuilder()
     .setLabel(truncateText(profile.characterName, 90))
-    .setDescription(`${profile.mageRank} · Puissance ${formatNumber(profile.powerLevel)} · Niveau ${profile.level}`.slice(0, 100))
+    .setDescription(
+      `${profile.mageRank} · Puissance ${formatNumber(profile.powerLevel)} · Niveau ${profile.level}`.slice(0, 100),
+    )
     .setValue(String(profile._id)));
 
   const select = new StringSelectMenuBuilder()
@@ -221,45 +338,74 @@ async function showSwitchMenu(interaction) {
 
   const rows = [
     new ActionRowBuilder().addComponents(select),
+
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('profile:create').setLabel('Créer un autre perso').setEmoji('✨').setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId('profile:home').setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId('profile:create')
+        .setLabel('Créer un autre perso')
+        .setEmoji('✨')
+        .setStyle(ButtonStyle.Success),
+
+      new ButtonBuilder()
+        .setCustomId('profile:home')
+        .setLabel('Retour')
+        .setEmoji('↩️')
+        .setStyle(ButtonStyle.Secondary),
     ),
   ];
 
   const fileName = 'fairy-slayer-profils.png';
+
   const attachment = await createPanelCanvas({
     fileName,
     variant: 'profile',
     section: 'Changer de personnage',
     title: `${profiles.length} profil(s) disponible(s)`,
     subtitle: 'Le profil actif reçoit l’XP, les Jewels, les missions et les actions RP.',
-    lines: profiles.map((profile, index) => `${index + 1}. ${profile.characterName} — Rang ${profile.mageRank} · Puissance ${formatNumber(profile.powerLevel)} · Niveau ${profile.level}`),
+    lines: profiles.map((profile, index) => (
+      `${index + 1}. ${profile.characterName} — Rang ${profile.mageRank} · Puissance ${formatNumber(profile.powerLevel)} · Niveau ${profile.level}`
+    )),
     footer: 'Utilise le menu déroulant sous le Canvas pour choisir ton personnage actif.',
   });
 
-  return interaction.update({
+  await interaction.update({
     embeds: [createCanvasEmbed(fileName)],
     components: rows,
     files: [attachment],
   });
+
+  scheduleProfileMenuExpiration(interaction.message, rows);
+
+  return interaction.message;
 }
 
 async function handleSwitchSelect(interaction) {
   const profileId = interaction.values[0];
-  const profile = await Profile.findOne({ _id: profileId, userId: interaction.user.id, guildId: interaction.guildId });
+
+  const profile = await Profile.findOne({
+    _id: profileId,
+    userId: interaction.user.id,
+    guildId: interaction.guildId,
+  });
 
   if (!profile) {
-    return interaction.reply({ content: 'Ce profil est introuvable.', ephemeral: true });
+    return interaction.reply({
+      content: 'Ce profil est introuvable.',
+      ephemeral: true,
+    });
   }
 
   await setActiveProfile(interaction.user.id, interaction.guildId, profile._id);
+
   return openProfileHub(interaction);
 }
 
 async function showEditModal(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
-  if (!profile) return openProfileHub(interaction);
+
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
 
   const modal = new ModalBuilder()
     .setCustomId('profile:edit:modal')
@@ -273,8 +419,9 @@ async function showEditModal(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setMaxLength(80)
-        .setValue(profile.characterName),
+        .setValue(profile.characterName || ''),
     ),
+
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('guildName')
@@ -284,6 +431,7 @@ async function showEditModal(interaction) {
         .setMaxLength(80)
         .setValue(profile.guildName || ''),
     ),
+
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('magicType')
@@ -291,8 +439,9 @@ async function showEditModal(interaction) {
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
         .setMaxLength(120)
-        .setValue(profile.magicType),
+        .setValue(profile.magicType || ''),
     ),
+
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('title')
@@ -302,6 +451,7 @@ async function showEditModal(interaction) {
         .setMaxLength(80)
         .setValue(profile.title || ''),
     ),
+
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('description')
@@ -318,7 +468,10 @@ async function showEditModal(interaction) {
 
 async function handleEditModal(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
-  if (!profile) return openProfileHub(interaction);
+
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
 
   profile.characterName = interaction.fields.getTextInputValue('characterName').trim();
   profile.guildName = interaction.fields.getTextInputValue('guildName')?.trim() || 'Sans guilde';
@@ -327,12 +480,16 @@ async function handleEditModal(interaction) {
   profile.description = interaction.fields.getTextInputValue('description')?.trim() || 'Aucune description renseignée.';
 
   await profile.save();
+
   return openProfileHub(interaction);
 }
 
 async function showImageModal(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
-  if (!profile) return openProfileHub(interaction);
+
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
 
   const modal = new ModalBuilder()
     .setCustomId('profile:image:modal')
@@ -356,18 +513,22 @@ async function showImageModal(interaction) {
 
 async function handleImageModal(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
-  if (!profile) return openProfileHub(interaction);
+
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
 
   const avatarUrl = interaction.fields.getTextInputValue('avatarUrl')?.trim() || null;
 
   if (!isValidHttpUrl(avatarUrl)) {
     return interaction.reply({
-      content: 'Le lien image doit commencer par `http://` ou `https://`. Laisse le champ vide pour revenir à ton avatar Discord.',
+      content: 'Le lien image doit commencer par `http://` ou `https://`. Laisse le champ vide pour retirer l’image du personnage.',
       ephemeral: true,
     });
   }
 
   profile.avatarUrl = avatarUrl;
+
   await profile.save();
 
   return openProfileHub(interaction);
@@ -375,12 +536,19 @@ async function handleImageModal(interaction) {
 
 async function showInventory(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
-  if (!profile) return openProfileHub(interaction);
 
-  const inventory = await Inventory.findOne({ profileId: profile._id });
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
+
+  const inventory = await Inventory.findOne({
+    profileId: profile._id,
+  });
+
   const itemCount = inventory?.items?.reduce((total, item) => total + item.quantity, 0) || 0;
 
   const fileName = 'fairy-slayer-inventaire.png';
+
   const attachment = await createPanelCanvas({
     fileName,
     variant: 'inventory',
@@ -401,18 +569,37 @@ async function showInventory(interaction) {
     footer: 'Menu /profil · Inventaire du personnage actif',
   });
 
-  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0x2b8cff)], components: getMainRows(), files: [attachment] });
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
+    components: getMainRows(),
+    files: [attachment],
+  });
 }
 
 async function showMissions(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
-  if (!profile) return openProfileHub(interaction);
 
-  const active = await ProfileMission.countDocuments({ profileId: profile._id, status: 'active' });
-  const completed = await ProfileMission.countDocuments({ profileId: profile._id, status: 'completed' });
-  const failed = await ProfileMission.countDocuments({ profileId: profile._id, status: 'failed' });
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
+
+  const active = await ProfileMission.countDocuments({
+    profileId: profile._id,
+    status: 'active',
+  });
+
+  const completed = await ProfileMission.countDocuments({
+    profileId: profile._id,
+    status: 'completed',
+  });
+
+  const failed = await ProfileMission.countDocuments({
+    profileId: profile._id,
+    status: 'failed',
+  });
 
   const fileName = 'fairy-slayer-missions.png';
+
   const attachment = await createPanelCanvas({
     fileName,
     variant: 'missions',
@@ -433,19 +620,34 @@ async function showMissions(interaction) {
     footer: 'Menu /profil · Missions du personnage actif',
   });
 
-  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0xffb347)], components: getMainRows(), files: [attachment] });
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName, 0xffb347)],
+    components: getMainRows(),
+    files: [attachment],
+  });
 }
 
 async function showRelations(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
-  if (!profile) return openProfileHub(interaction);
 
-  const relations = await Relation.find({ ownerProfileId: profile._id }).limit(8).populate('targetProfileId');
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
+
+  const relations = await Relation.find({
+    ownerProfileId: profile._id,
+  })
+    .limit(8)
+    .populate('targetProfileId');
+
   const lines = relations.length
-    ? relations.map((relation) => `${relation.targetProfileId?.characterName || 'Personnage inconnu'} — ${relation.type} · confiance ${relation.trust}% · tension ${relation.tension}%`)
+    ? relations.map((relation) => (
+      `${relation.targetProfileId?.characterName || 'Personnage inconnu'} — ${relation.type} · confiance ${relation.trust}% · tension ${relation.tension}%`
+    ))
     : ['Aucune relation renseignée pour l’instant.'];
 
   const fileName = 'fairy-slayer-relations.png';
+
   const attachment = await createPanelCanvas({
     fileName,
     variant: 'relations',
@@ -456,24 +658,40 @@ async function showRelations(interaction) {
     footer: 'Menu /profil · Relations du personnage actif',
   });
 
-  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0x64d2a6)], components: getMainRows(), files: [attachment] });
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName, 0x64d2a6)],
+    components: getMainRows(),
+    files: [attachment],
+  });
 }
 
 async function showRumors(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
-  if (!profile) return openProfileHub(interaction);
+
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
 
   const now = new Date();
+
   const rumors = await Rumor.find({
     targetProfileId: profile._id,
-    $or: [{ expiresAt: null }, { expiresAt: { $gt: now } }],
-  }).sort({ createdAt: -1 }).limit(8);
+    $or: [
+      { expiresAt: null },
+      { expiresAt: { $gt: now } },
+    ],
+  })
+    .sort({ createdAt: -1 })
+    .limit(8);
 
   const lines = rumors.length
-    ? rumors.map((rumor) => `${rumor.type} · crédibilité ${rumor.credibility}% — ${truncateText(rumor.content, 110)}`)
+    ? rumors.map((rumor) => (
+      `${rumor.type} · crédibilité ${rumor.credibility}% — ${truncateText(rumor.content, 110)}`
+    ))
     : ['Aucune rumeur active pour l’instant.'];
 
   const fileName = 'fairy-slayer-rumeurs.png';
+
   const attachment = await createPanelCanvas({
     fileName,
     variant: 'rumors',
@@ -484,19 +702,34 @@ async function showRumors(interaction) {
     footer: 'Menu /profil · Rumeurs actives du personnage actif',
   });
 
-  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0xc084fc)], components: getMainRows(), files: [attachment] });
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName, 0xc084fc)],
+    components: getMainRows(),
+    files: [attachment],
+  });
 }
 
 async function showReputation(interaction) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
-  if (!profile) return openProfileHub(interaction);
 
-  const logs = await ReputationLog.find({ profileId: profile._id }).sort({ createdAt: -1 }).limit(5);
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
+
+  const logs = await ReputationLog.find({
+    profileId: profile._id,
+  })
+    .sort({ createdAt: -1 })
+    .limit(5);
+
   const lines = logs.length
-    ? logs.map((log) => `${log.amount > 0 ? '+' : ''}${log.amount} — ${truncateText(log.reason, 90)}`)
+    ? logs.map((log) => (
+      `${log.amount > 0 ? '+' : ''}${log.amount} — ${truncateText(log.reason, 90)}`
+    ))
     : ['Aucun historique de réputation.'];
 
   const fileName = 'fairy-slayer-reputation.png';
+
   const attachment = await createPanelCanvas({
     fileName,
     variant: 'reputation',
@@ -509,11 +742,18 @@ async function showReputation(interaction) {
       { label: 'Rang', value: profile.mageRank },
       { label: 'Puissance', value: formatNumber(profile.powerLevel) },
     ],
-    lines: ['Derniers changements :', ...lines],
+    lines: [
+      'Derniers changements :',
+      ...lines,
+    ],
     footer: 'Menu /profil · Réputation du personnage actif',
   });
 
-  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0xffdf91)], components: getMainRows(), files: [attachment] });
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName, 0xffdf91)],
+    components: getMainRows(),
+    files: [attachment],
+  });
 }
 
 module.exports = {
