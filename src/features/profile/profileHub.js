@@ -17,7 +17,6 @@ const {
 } = require('../../utils/inventoryUtils');
 
 const Profile = require('../../models/Profile');
-const Inventory = require('../../models/Inventory');
 const ProfileMission = require('../../models/ProfileMission');
 const Relation = require('../../models/Relation');
 const Rumor = require('../../models/Rumor');
@@ -25,6 +24,18 @@ const ReputationLog = require('../../models/ReputationLog');
 
 const { createProfileCanvas } = require('../../canvas/profileCanvas');
 const { createPanelCanvas } = require('../../canvas/panelCanvas');
+
+const {
+  getInventorySummary,
+  getInventoryDetails,
+  formatInventoryLines,
+} = require('../../utils/inventoryUtils');
+
+const {
+  getItemById,
+  getRarityLabel,
+  getTypeLabel,
+} = require('../../data/items');
 
 const {
   getOrCreatePlayer,
@@ -572,6 +583,39 @@ profile.avatarUrl = normalizedAvatarUrl;
   });
 }
 
+function getInventoryItemSelectRow(items) {
+  if (!items.length) return null;
+
+  const options = items.slice(0, 25).map((item) => (
+    new StringSelectMenuOptionBuilder()
+      .setLabel(item.name.slice(0, 100))
+      .setDescription(`x${item.quantity} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)}`.slice(0, 100))
+      .setValue(item.itemId)
+  ));
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('profile:inventory:item')
+    .setPlaceholder('Voir le détail d’un objet')
+    .addOptions(options);
+
+  return new ActionRowBuilder().addComponents(select);
+}
+
+function getInventoryRowsWithSelect(items, activeCategory = 'all') {
+  const rows = [];
+
+  const selectRow = getInventoryItemSelectRow(items);
+
+  if (selectRow) {
+    rows.push(selectRow);
+  }
+
+  return [
+    ...rows,
+    ...getInventoryCategoryRows(activeCategory),
+  ];
+}
+
 function getInventoryCategoryLabel(category = 'all') {
   const labels = {
     all: 'Tout l’inventaire',
@@ -692,7 +736,68 @@ async function showInventory(interaction, category = 'all') {
 
   return interaction.update({
     embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
-    components: getInventoryCategoryRows(category),
+    components: getInventoryRowsWithSelect(filteredItems, category),
+    files: [attachment],
+  });
+}
+
+async function showInventoryItem(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
+
+  const itemId = interaction.values[0];
+  const item = getItemById(itemId);
+
+  if (!item) {
+    return interaction.reply({
+      content: 'Objet introuvable.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const inventoryItems = await getInventoryDetails(profile._id);
+  const ownedItem = inventoryItems.find((entry) => entry.itemId === item.itemId);
+
+  if (!ownedItem) {
+    return interaction.reply({
+      content: `Tu ne possèdes pas **${item.name}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const fileName = 'fairy-slayer-objet.png';
+
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'inventory',
+    section: `Objet — ${profile.characterName}`,
+    title: item.name,
+    subtitle: item.description,
+    stats: [
+      { label: 'Quantité', value: formatNumber(ownedItem.quantity) },
+      { label: 'Type', value: getTypeLabel(item.type) },
+      { label: 'Rareté', value: getRarityLabel(item.rarity) },
+      { label: 'Revente', value: `${formatNumber(item.sellPrice)} Jewels` },
+    ],
+    lines: [
+      `Nom : ${item.name}`,
+      `Description : ${item.description}`,
+      `Type : ${getTypeLabel(item.type)}`,
+      `Rareté : ${getRarityLabel(item.rarity)}`,
+      `Prix boutique : ${formatNumber(item.basePrice)} Jewels`,
+      `Prix de revente : ${formatNumber(item.sellPrice)} Jewels`,
+      `Rang requis : ${item.requiredRank || 'C'}`,
+      `Puissance requise : ${formatNumber(item.requiredPower || 0)}`,
+    ],
+    footer: 'Menu /profil - Fiche détail d’objet',
+  });
+
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
+    components: getInventoryRowsWithSelect(inventoryItems, 'all'),
     files: [attachment],
   });
 }
@@ -892,4 +997,5 @@ module.exports = {
   showRelations,
   showRumors,
   showReputation,
+  showInventoryItem,
 };
