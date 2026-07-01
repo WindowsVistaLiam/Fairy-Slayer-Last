@@ -8,6 +8,7 @@ const {
   StringSelectMenuOptionBuilder,
   TextInputBuilder,
   TextInputStyle,
+  MessageFlags,
 } = require('discord.js');
 
 const {
@@ -519,26 +520,38 @@ async function showImageModal(interaction) {
 }
 
 async function handleImageModal(interaction) {
+  await interaction.deferReply({
+    flags: MessageFlags.Ephemeral,
+  });
+
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
   if (!profile) {
-    return openProfileHub(interaction);
+    return interaction.editReply({
+      content: 'Tu n’as aucun personnage actif. Relance `/profil` pour créer ou sélectionner un personnage.',
+    });
   }
 
   const avatarUrl = interaction.fields.getTextInputValue('avatarUrl')?.trim() || null;
 
   if (!isValidHttpUrl(avatarUrl)) {
-    return interaction.reply({
+    return interaction.editReply({
       content: 'Le lien image doit commencer par `http://` ou `https://`. Laisse le champ vide pour retirer l’image du personnage.',
-      ephemeral: true,
     });
   }
 
   profile.avatarUrl = avatarUrl;
-
   await profile.save();
 
-  return openProfileHub(interaction);
+  if (!avatarUrl) {
+    return interaction.editReply({
+      content: '✅ Image retirée du profil. Relance `/profil` ou clique sur **Profil** pour actualiser la carte.',
+    });
+  }
+
+  return interaction.editReply({
+    content: '✅ Image du personnage mise à jour. Relance `/profil` ou clique sur **Profil** pour actualiser la carte.',
+  });
 }
 
 function getInventoryCategoryLabel(category = 'all') {
