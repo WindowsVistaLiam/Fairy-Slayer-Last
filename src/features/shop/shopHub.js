@@ -18,6 +18,7 @@ const {
   addItemToInventory,
   removeItemFromInventory,
   getInventoryDetails,
+  getProfilePowerWithEquipment,
 } = require('../../utils/inventoryUtils');
 
 const {
@@ -25,6 +26,9 @@ const {
   getItemById,
   getRarityLabel,
   getTypeLabel,
+  getEquipSlotLabel,
+  getItemEquipSlot,
+  getItemPowerBonus,
 } = require('../../data/items');
 
 function createCanvasEmbed(fileName, color = 0x9b8cff) {
@@ -45,9 +49,20 @@ function getRankPower(rank) {
   return values[rank] || 1;
 }
 
-function canBuyItem(profile, item) {
+async function getProfileShopPower(profile) {
+  const powerInfo = await getProfilePowerWithEquipment(profile);
+
+  return {
+    basePower: Number(powerInfo.basePower || profile.powerLevel || 0),
+    equipmentBonus: Number(powerInfo.equipmentBonus || 0),
+    totalPower: Number(powerInfo.totalPower || profile.powerLevel || 0),
+  };
+}
+
+function canBuyItem(profile, item, powerInfo) {
   const profileRank = getRankPower(profile.mageRank);
   const requiredRank = getRankPower(item.requiredRank || 'C');
+  const totalPower = Number(powerInfo?.totalPower || profile.powerLevel || 0);
 
   if (profileRank < requiredRank) {
     return {
@@ -56,7 +71,7 @@ function canBuyItem(profile, item) {
     };
   }
 
-  if (Number(profile.powerLevel || 0) < Number(item.requiredPower || 0)) {
+  if (totalPower < Number(item.requiredPower || 0)) {
     return {
       allowed: false,
       reason: `${formatNumber(item.requiredPower)} puissance requise`,
@@ -107,14 +122,26 @@ function calculateShopPrice(basePrice, profile, rumors = []) {
   return Math.max(1, Math.floor(basePrice * multiplier));
 }
 
-function getBuyRows(items, profile, rumors) {
+function formatShopItemLine(item, finalPrice, availability) {
+  const slot = getItemEquipSlot(item);
+  const slotText = slot ? ` - ${getEquipSlotLabel(slot)}` : '';
+  const powerBonus = getItemPowerBonus(item);
+  const bonusText = powerBonus > 0 ? ` - +${formatNumber(powerBonus)} puissance` : '';
+  const status = availability.allowed ? 'Disponible' : `Bloqué : ${availability.reason}`;
+
+  return `${item.name} - ${formatNumber(finalPrice)} Jewels - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - ${status}`;
+}
+
+function getBuyRows(items, profile, rumors, powerInfo) {
   const options = items.slice(0, 25).map((item) => {
     const finalPrice = calculateShopPrice(item.basePrice, profile, rumors);
-    const availability = canBuyItem(profile, item);
+    const availability = canBuyItem(profile, item, powerInfo);
+    const powerBonus = getItemPowerBonus(item);
+    const bonusText = powerBonus > 0 ? ` +${formatNumber(powerBonus)} puissance` : '';
 
     return new StringSelectMenuOptionBuilder()
       .setLabel(item.name.slice(0, 100))
-      .setDescription(`${formatNumber(finalPrice)} Jewels - ${availability.reason}`.slice(0, 100))
+      .setDescription(`${formatNumber(finalPrice)} Jewels - ${availability.reason}${bonusText}`.slice(0, 100))
       .setValue(item.itemId);
   });
 
@@ -170,10 +197,15 @@ function getSellRows(inventoryItems) {
   const rows = [];
 
   if (inventoryItems.length) {
-    const options = inventoryItems.slice(0, 25).map((item) => new StringSelectMenuOptionBuilder()
-      .setLabel(item.name.slice(0, 100))
-      .setDescription(`x${item.quantity} - revente ${formatNumber(item.sellPrice)} Jewels`.slice(0, 100))
-      .setValue(item.itemId));
+    const options = inventoryItems.slice(0, 25).map((item) => {
+      const powerBonus = getItemPowerBonus(item);
+      const bonusText = powerBonus > 0 ? ` - +${formatNumber(powerBonus)} puissance` : '';
+
+      return new StringSelectMenuOptionBuilder()
+        .setLabel(item.name.slice(0, 100))
+        .setDescription(`x${item.quantity} - revente ${formatNumber(item.sellPrice)} Jewels${bonusText}`.slice(0, 100))
+        .setValue(item.itemId);
+    });
 
     const select = new StringSelectMenuBuilder()
       .setCustomId('shop:sell')
@@ -207,6 +239,7 @@ async function renderShop(interaction, filterType = null) {
   }
 
   const rumors = await getActiveRumors(profile._id);
+  const powerInfo = await getProfileShopPower(profile);
 
   let items = getShopItems();
 
@@ -216,10 +249,9 @@ async function renderShop(interaction, filterType = null) {
 
   const lines = items.slice(0, 8).map((item) => {
     const finalPrice = calculateShopPrice(item.basePrice, profile, rumors);
-    const availability = canBuyItem(profile, item);
-    const status = availability.allowed ? 'Disponible' : `Bloqué : ${availability.reason}`;
+    const availability = canBuyItem(profile, item, powerInfo);
 
-    return `${item.name} - ${formatNumber(finalPrice)} Jewels - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - ${status}`;
+    return formatShopItemLine(item, finalPrice, availability);
   });
 
   const fileName = 'fairy-slayer-boutique.png';
@@ -229,12 +261,12 @@ async function renderShop(interaction, filterType = null) {
     variant: 'shop',
     section: `Boutique — ${profile.characterName}`,
     title: filterType ? `Rayon ${getTypeLabel(filterType)}` : 'Boutique de Magnolia',
-    subtitle: 'Les prix évoluent selon ta réputation et les rumeurs actives.',
+    subtitle: 'Les prix évoluent selon ta réputation, les rumeurs et tes conditions de puissance.',
     stats: [
       { label: 'Jewels', value: formatNumber(profile.jewels) },
-      { label: 'Réputation', value: String(profile.reputation || 0) },
+      { label: 'Puissance', value: formatNumber(powerInfo.totalPower) },
+      { label: 'Bonus équip.', value: `+${formatNumber(powerInfo.equipmentBonus)}` },
       { label: 'Rang', value: profile.mageRank },
-      { label: 'Puissance', value: formatNumber(profile.powerLevel) },
     ],
     lines,
     footer: 'Sélectionne un objet dans le menu sous le Canvas pour l’acheter.',
@@ -242,7 +274,7 @@ async function renderShop(interaction, filterType = null) {
 
   const payload = {
     embeds: [createCanvasEmbed(fileName)],
-    components: getBuyRows(items, profile, rumors),
+    components: getBuyRows(items, profile, rumors, powerInfo),
     files: [attachment],
   };
 
@@ -264,6 +296,7 @@ async function renderSellMenu(interaction) {
   }
 
   const inventoryItems = await getInventoryDetails(profile._id);
+  const powerInfo = await getProfileShopPower(profile);
 
   const totalSellValue = inventoryItems.reduce(
     (total, item) => total + Number(item.sellPrice || 0) * Number(item.quantity || 0),
@@ -271,9 +304,15 @@ async function renderSellMenu(interaction) {
   );
 
   const lines = inventoryItems.length
-    ? inventoryItems.slice(0, 8).map((item) => (
-      `${item.name} x${item.quantity} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - revente ${formatNumber(item.sellPrice)} Jewels`
-    ))
+    ? inventoryItems.slice(0, 8).map((item) => {
+      const slot = getItemEquipSlot(item);
+      const slotText = slot ? ` - ${getEquipSlotLabel(slot)}` : '';
+      const powerBonus = getItemPowerBonus(item);
+      const bonusText = powerBonus > 0 ? ` - +${formatNumber(powerBonus)} puissance` : '';
+      const equippedText = item.equipped ? ' - ÉQUIPÉ' : '';
+
+      return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - revente ${formatNumber(item.sellPrice)} Jewels${equippedText}`;
+    })
     : [
       'Ton inventaire est vide. Achète des objets dans la boutique ou demande au staff de t’en donner.',
     ];
@@ -289,8 +328,8 @@ async function renderSellMenu(interaction) {
     stats: [
       { label: 'Jewels', value: formatNumber(profile.jewels) },
       { label: 'Objets', value: formatNumber(inventoryItems.reduce((total, item) => total + item.quantity, 0)) },
+      { label: 'Bonus équip.', value: `+${formatNumber(powerInfo.equipmentBonus)}` },
       { label: 'Valeur', value: formatNumber(totalSellValue) },
-      { label: 'Rang', value: profile.mageRank },
     ],
     lines,
     footer: 'Sélectionne un objet dans le menu sous le Canvas pour en vendre 1 exemplaire.',
@@ -327,7 +366,8 @@ async function buyItem(interaction) {
     });
   }
 
-  const availability = canBuyItem(profile, item);
+  const powerInfo = await getProfileShopPower(profile);
+  const availability = canBuyItem(profile, item, powerInfo);
 
   if (!availability.allowed) {
     return interaction.reply({
@@ -351,8 +391,11 @@ async function buyItem(interaction) {
   await profile.save();
   await addItemToInventory(profile._id, item.itemId, 1);
 
+  const powerBonus = getItemPowerBonus(item);
+  const bonusText = powerBonus > 0 ? ` Il donne **+${formatNumber(powerBonus)} puissance** une fois équipé.` : '';
+
   return interaction.reply({
-    content: `Achat réussi : **${item.name}** pour **${formatNumber(finalPrice)} Jewels**.`,
+    content: `Achat réussi : **${item.name}** pour **${formatNumber(finalPrice)} Jewels**.${bonusText}`,
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -373,6 +416,16 @@ async function sellItem(interaction) {
   if (!item) {
     return interaction.reply({
       content: 'Cet objet est introuvable.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const inventoryItems = await getInventoryDetails(profile._id);
+  const ownedItem = inventoryItems.find((entry) => entry.itemId === item.itemId);
+
+  if (ownedItem?.equipped) {
+    return interaction.reply({
+      content: `Tu dois d’abord déséquiper **${item.name}** avant de le vendre.`,
       flags: MessageFlags.Ephemeral,
     });
   }
