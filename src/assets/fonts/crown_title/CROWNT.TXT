@@ -1,0 +1,44 @@
+
+                                Crown Title
+                          -----------------------
+                  Released as shareware in September 1997.
+
+     Crown Title is designed to be used with layered outlines and
+     perhaps negative leading to produce title blocks. It contains two
+     alphabets, but no numbers or accented letters. The only
+     punctation marks included are the hyphen, en-dash and em-dash. I
+     recommend setting it at no smaller than 72 points.
+
+     To avoid loss of quality, please do not convert this font to other 
+     formats without checking with me first. Crown Title is currently 
+     available in PostScript and TrueType formats for both Macintosh and 
+     Windows.
+
+     If you have received the wrong version, please download the version 
+     you need from:
+
+          http://www.mlink.net/~paterson/jpfonts.htm
+
+     I am releasing this font as shareware and asking for a
+     registration fee of $10 (Canadian dollars for Canadian users;
+     U.S. dollars or the equivalent of US$10 in local currency for
+     users outside Canada).
+
+     Registered users will receive a receipt and notice of any new
+     versions or fonts that I release. For Canadian users, the price
+     includes GST and, in Quebec, QST.
+
+     Crown Title may not be sold or modified without my written consent.
+     Crown Title may not be distributed without the accompanying text
+     file.
+
+     Please send your registration fee in the form of a Canadian
+     cheque or an international money order, with your name and return
+     address, to:
+
+          Jonathan Paterson
+          3534 de Lorimier
+          Montreal, Quebec
+          Canada  H2K 3X6
+
+          E-Mail: paterson@mlink.net
