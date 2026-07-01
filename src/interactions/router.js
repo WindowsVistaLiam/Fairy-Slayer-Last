@@ -91,6 +91,9 @@ async function handleComponentInteraction(interaction) {
   if (id === 'profile:inventory:rare') return profileHub.showInventory(interaction, 'rare');
   if (id === 'profile:inventory:mission') return profileHub.showInventory(interaction, 'mission');
   if (id === 'profile:inventory:item') return profileHub.showInventoryItem(interaction);
+  if (id.startsWith('profile:inventory:use:')) return profileHub.useInventoryItem(interaction);
+  if (id.startsWith('profile:inventory:equip:')) return profileHub.equipInventoryItemAction(interaction);
+  if (id.startsWith('profile:inventory:unequip:')) return profileHub.unequipInventoryItemAction(interaction);
 
   // Autres pages profil
   if (id === 'profile:missions') return profileHub.showMissions(interaction);

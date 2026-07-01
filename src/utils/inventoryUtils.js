@@ -1,5 +1,10 @@
 const Inventory = require('../models/Inventory');
-const { getItemById, getRarityLabel, getTypeLabel } = require('../data/items');
+
+const {
+  getItemById,
+  getRarityLabel,
+  getTypeLabel,
+} = require('../data/items');
 
 async function getOrCreateInventory(profileId) {
   let inventory = await Inventory.findOne({ profileId });
@@ -52,6 +57,92 @@ async function removeItemFromInventory(profileId, itemId, quantity = 1) {
   return true;
 }
 
+function isEquipableItem(item) {
+  return item?.type === 'equipement' || item?.type === 'lacrima';
+}
+
+async function equipItemInInventory(profileId, itemId) {
+  const inventory = await getOrCreateInventory(profileId);
+  const entry = inventory.items.find((item) => item.itemId === itemId);
+  const item = getItemById(itemId);
+
+  if (!item) {
+    return {
+      success: false,
+      reason: 'Objet introuvable.',
+    };
+  }
+
+  if (!entry || entry.quantity <= 0) {
+    return {
+      success: false,
+      reason: `Tu ne possèdes pas ${item.name}.`,
+    };
+  }
+
+  if (!isEquipableItem(item)) {
+    return {
+      success: false,
+      reason: `${item.name} ne peut pas être équipé.`,
+    };
+  }
+
+  for (const inventoryItem of inventory.items) {
+    const catalogItem = getItemById(inventoryItem.itemId);
+
+    if (catalogItem?.type === item.type) {
+      inventoryItem.equipped = false;
+    }
+  }
+
+  entry.equipped = true;
+
+  await inventory.save();
+
+  return {
+    success: true,
+    item,
+    inventory,
+  };
+}
+
+async function unequipItemInInventory(profileId, itemId) {
+  const inventory = await getOrCreateInventory(profileId);
+  const entry = inventory.items.find((item) => item.itemId === itemId);
+  const item = getItemById(itemId);
+
+  if (!item) {
+    return {
+      success: false,
+      reason: 'Objet introuvable.',
+    };
+  }
+
+  if (!entry || entry.quantity <= 0) {
+    return {
+      success: false,
+      reason: `Tu ne possèdes pas ${item.name}.`,
+    };
+  }
+
+  if (!isEquipableItem(item)) {
+    return {
+      success: false,
+      reason: `${item.name} ne peut pas être déséquipé.`,
+    };
+  }
+
+  entry.equipped = false;
+
+  await inventory.save();
+
+  return {
+    success: true,
+    item,
+    inventory,
+  };
+}
+
 async function getInventoryDetails(profileId) {
   const inventory = await getOrCreateInventory(profileId);
 
@@ -64,7 +155,7 @@ async function getInventoryDetails(profileId) {
       return {
         ...item,
         quantity: entry.quantity,
-        equipped: entry.equipped,
+        equipped: Boolean(entry.equipped),
       };
     })
     .filter(Boolean);
@@ -81,11 +172,14 @@ async function getInventorySummary(profileId) {
     return acc;
   }, {});
 
+  const equippedItems = items.filter((item) => item.equipped);
+
   return {
     items,
     totalQuantity,
     totalValue,
     byType,
+    equippedItems,
   };
 }
 
@@ -96,15 +190,19 @@ function formatInventoryLines(items, limit = 8) {
     ];
   }
 
-  return items.slice(0, limit).map((item) => (
-    `${item.name} x${item.quantity} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - revente ${item.sellPrice} Jewels`
-  ));
+  return items.slice(0, limit).map((item) => {
+    const equippedText = item.equipped ? ' - ÉQUIPÉ' : '';
+
+    return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - revente ${item.sellPrice} Jewels${equippedText}`;
+  });
 }
 
 module.exports = {
   getOrCreateInventory,
   addItemToInventory,
   removeItemFromInventory,
+  equipItemInInventory,
+  unequipItemInInventory,
   getInventoryDetails,
   getInventorySummary,
   formatInventoryLines,

@@ -23,6 +23,9 @@ const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const {
   getInventorySummary,
   getInventoryDetails,
+  removeItemFromInventory,
+  equipItemInInventory,
+  unequipItemInInventory,
   formatInventoryLines,
 } = require('../../utils/inventoryUtils');
 
@@ -611,6 +614,51 @@ function getInventoryRowsWithSelect(items, activeCategory = 'all') {
   ];
 }
 
+function canUseInventoryItem(item) {
+  return item?.type === 'consommable';
+}
+
+function getItemUseText(item) {
+  const effects = {
+    potion_soin_mineure: 'Le personnage utilise une potion de soin mineure. L’effet peut être pris en compte dans la scène RP.',
+    potion_magique: 'Le personnage utilise une potion magique. Ses réserves magiques sont symboliquement restaurées.',
+  };
+
+  return effects[item.itemId] || `Le personnage utilise ${item.name}.`;
+}
+
+function getInventoryItemDetailRows(inventoryItems, item) {
+  const rows = [];
+
+  const selectRow = getInventoryItemSelectRow(inventoryItems);
+
+  if (selectRow) {
+    rows.push(selectRow);
+  }
+
+  const actionButtons = [
+    new ButtonBuilder()
+      .setCustomId('profile:inventory:all')
+      .setLabel('Retour inventaire')
+      .setEmoji('↩️')
+      .setStyle(ButtonStyle.Secondary),
+  ];
+
+  if (canUseInventoryItem(item)) {
+    actionButtons.unshift(
+      new ButtonBuilder()
+        .setCustomId(`profile:inventory:use:${item.itemId}`)
+        .setLabel('Utiliser 1')
+        .setEmoji('🧪')
+        .setStyle(ButtonStyle.Success),
+    );
+  }
+
+  rows.push(new ActionRowBuilder().addComponents(actionButtons));
+
+  return rows;
+}
+
 function getInventoryCategoryLabel(category = 'all') {
   const labels = {
     all: 'Tout l’inventaire',
@@ -622,6 +670,68 @@ function getInventoryCategoryLabel(category = 'all') {
   };
 
   return labels[category] || 'Tout l’inventaire';
+}
+
+function canEquipInventoryItem(item) {
+  return item?.type === 'equipement' || item?.type === 'lacrima';
+}
+
+function getEquipmentActionText(item, equipped) {
+  if (!canEquipInventoryItem(item)) {
+    return 'Action disponible : cet objet ne peut pas être équipé.';
+  }
+
+  return equipped
+    ? 'Action disponible : cet objet est équipé et peut être déséquipé.'
+    : 'Action disponible : cet objet peut être équipé.';
+}
+
+function getInventoryItemDetailRows(inventoryItems, item, ownedItem) {
+  const rows = [];
+
+  const selectRow = getInventoryItemSelectRow(inventoryItems);
+
+  if (selectRow) {
+    rows.push(selectRow);
+  }
+
+  const actionButtons = [];
+
+  if (canUseInventoryItem(item)) {
+    actionButtons.push(
+      new ButtonBuilder()
+        .setCustomId(`profile:inventory:use:${item.itemId}`)
+        .setLabel('Utiliser 1')
+        .setEmoji('🧪')
+        .setStyle(ButtonStyle.Success),
+    );
+  }
+
+  if (canEquipInventoryItem(item)) {
+    actionButtons.push(
+      new ButtonBuilder()
+        .setCustomId(
+          ownedItem?.equipped
+            ? `profile:inventory:unequip:${item.itemId}`
+            : `profile:inventory:equip:${item.itemId}`,
+        )
+        .setLabel(ownedItem?.equipped ? 'Déséquiper' : 'Équiper')
+        .setEmoji(ownedItem?.equipped ? '📤' : '🛡️')
+        .setStyle(ownedItem?.equipped ? ButtonStyle.Secondary : ButtonStyle.Success),
+    );
+  }
+
+  actionButtons.push(
+    new ButtonBuilder()
+      .setCustomId('profile:inventory:all')
+      .setLabel('Retour inventaire')
+      .setEmoji('↩️')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  rows.push(new ActionRowBuilder().addComponents(actionButtons));
+
+  return rows;
 }
 
 function getInventoryCategoryRows(activeCategory = 'all') {
@@ -775,7 +885,7 @@ async function showInventoryItem(interaction) {
       { label: 'Quantité', value: formatNumber(ownedItem.quantity) },
       { label: 'Type', value: getTypeLabel(item.type) },
       { label: 'Rareté', value: getRarityLabel(item.rarity) },
-      { label: 'Revente', value: `${formatNumber(item.sellPrice)} Jewels` },
+      { label: 'Statut', value: ownedItem.equipped ? 'Équipé' : 'Non équipé' },
     ],
     lines: [
       `Nom : ${item.name}`,
@@ -786,13 +896,185 @@ async function showInventoryItem(interaction) {
       `Prix de revente : ${formatNumber(item.sellPrice)} Jewels`,
       `Rang requis : ${item.requiredRank || 'C'}`,
       `Puissance requise : ${formatNumber(item.requiredPower || 0)}`,
+      canUseInventoryItem(item)
+        ? 'Action disponible : cet objet peut être utilisé.'
+        : getEquipmentActionText(item, ownedItem.equipped),
     ],
     footer: 'Menu /profil - Fiche détail d’objet',
   });
 
   return interaction.update({
     embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
+    components: getInventoryItemDetailRows(inventoryItems, item, ownedItem),
+    files: [attachment],
+  });
+}
+
+async function useInventoryItem(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
+
+  const itemId = interaction.customId.replace('profile:inventory:use:', '');
+  const item = getItemById(itemId);
+
+  if (!item) {
+    return interaction.reply({
+      content: 'Objet introuvable.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  if (!canUseInventoryItem(item)) {
+    return interaction.reply({
+      content: `**${item.name}** ne peut pas être utilisé pour le moment.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const removed = await removeItemFromInventory(profile._id, item.itemId, 1);
+
+  if (!removed) {
+    return interaction.reply({
+      content: `Tu ne possèdes pas **${item.name}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const inventoryItems = await getInventoryDetails(profile._id);
+  const remainingItem = inventoryItems.find((entry) => entry.itemId === item.itemId);
+  const remainingQuantity = remainingItem?.quantity || 0;
+
+  const fileName = 'fairy-slayer-objet-utilise.png';
+
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'inventory',
+    section: `Objet utilisé — ${profile.characterName}`,
+    title: item.name,
+    subtitle: 'L’objet a été consommé avec succès.',
+    stats: [
+      { label: 'Utilisé', value: '1' },
+      { label: 'Restant', value: formatNumber(remainingQuantity) },
+      { label: 'Type', value: getTypeLabel(item.type) },
+      { label: 'Rareté', value: getRarityLabel(item.rarity) },
+    ],
+    lines: [
+      `Objet utilisé : ${item.name}`,
+      `Quantité consommée : 1`,
+      `Quantité restante : ${formatNumber(remainingQuantity)}`,
+      `Effet : ${getItemUseText(item)}`,
+    ],
+    footer: 'Menu /profil - Utilisation de consommable',
+  });
+
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
     components: getInventoryRowsWithSelect(inventoryItems, 'all'),
+    files: [attachment],
+  });
+}
+
+async function equipInventoryItemAction(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
+
+  const itemId = interaction.customId.replace('profile:inventory:equip:', '');
+  const result = await equipItemInInventory(profile._id, itemId);
+
+  if (!result.success) {
+    return interaction.reply({
+      content: result.reason,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const inventoryItems = await getInventoryDetails(profile._id);
+  const ownedItem = inventoryItems.find((entry) => entry.itemId === result.item.itemId);
+
+  const fileName = 'fairy-slayer-objet-equipe.png';
+
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'inventory',
+    section: `Objet équipé — ${profile.characterName}`,
+    title: result.item.name,
+    subtitle: 'L’objet a été équipé avec succès.',
+    stats: [
+      { label: 'Statut', value: 'Équipé' },
+      { label: 'Type', value: getTypeLabel(result.item.type) },
+      { label: 'Rareté', value: getRarityLabel(result.item.rarity) },
+      { label: 'Quantité', value: formatNumber(ownedItem?.quantity || 1) },
+    ],
+    lines: [
+      `Objet équipé : ${result.item.name}`,
+      `Type : ${getTypeLabel(result.item.type)}`,
+      `Rareté : ${getRarityLabel(result.item.rarity)}`,
+      result.item.type === 'equipement'
+        ? 'Un autre équipement actif du même type a été automatiquement déséquipé.'
+        : 'Une autre lacrima active a été automatiquement déséquipée.',
+    ],
+    footer: 'Menu /profil - Équipement modifié',
+  });
+
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
+    components: getInventoryItemDetailRows(inventoryItems, result.item, ownedItem),
+    files: [attachment],
+  });
+}
+
+async function unequipInventoryItemAction(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+
+  if (!profile) {
+    return openProfileHub(interaction);
+  }
+
+  const itemId = interaction.customId.replace('profile:inventory:unequip:', '');
+  const result = await unequipItemInInventory(profile._id, itemId);
+
+  if (!result.success) {
+    return interaction.reply({
+      content: result.reason,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const inventoryItems = await getInventoryDetails(profile._id);
+  const ownedItem = inventoryItems.find((entry) => entry.itemId === result.item.itemId);
+
+  const fileName = 'fairy-slayer-objet-desequipe.png';
+
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'inventory',
+    section: `Objet déséquipé — ${profile.characterName}`,
+    title: result.item.name,
+    subtitle: 'L’objet a été déséquipé avec succès.',
+    stats: [
+      { label: 'Statut', value: 'Non équipé' },
+      { label: 'Type', value: getTypeLabel(result.item.type) },
+      { label: 'Rareté', value: getRarityLabel(result.item.rarity) },
+      { label: 'Quantité', value: formatNumber(ownedItem?.quantity || 1) },
+    ],
+    lines: [
+      `Objet déséquipé : ${result.item.name}`,
+      `Type : ${getTypeLabel(result.item.type)}`,
+      `Rareté : ${getRarityLabel(result.item.rarity)}`,
+      'L’objet reste dans ton inventaire.',
+    ],
+    footer: 'Menu /profil - Équipement modifié',
+  });
+
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
+    components: getInventoryItemDetailRows(inventoryItems, result.item, ownedItem),
     files: [attachment],
   });
 }
@@ -993,4 +1275,7 @@ module.exports = {
   showRumors,
   showReputation,
   showInventoryItem,
+  useInventoryItem,
+  equipInventoryItemAction,
+  unequipInventoryItemAction,
 };
