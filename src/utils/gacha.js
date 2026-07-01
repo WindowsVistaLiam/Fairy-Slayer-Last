@@ -26,7 +26,7 @@ async function getOrCreateGachaAccount(userId, guildId) {
   return GachaAccount.findOneAndUpdate(
     { userId, guildId },
     { $setOnInsert: { userId, guildId } },
-    { new: true, upsert: true, setDefaultsOnInsert: true },
+    { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
   );
 }
 
@@ -103,7 +103,7 @@ async function chargeDraw({ userId, guildId, mode }) {
         ],
       },
       { $set: { freeDrawAvailableAt: new Date(now.getTime() + FREE_DRAW_COOLDOWN_MS) } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!charged) {
       const latest = await GachaAccount.findById(account._id);
@@ -116,7 +116,7 @@ async function chargeDraw({ userId, guildId, mode }) {
     const charged = await GachaAccount.findOneAndUpdate(
       { _id: account._id, fragments: { $gte: FRAGMENT_DRAW_COST } },
       { $inc: { fragments: -FRAGMENT_DRAW_COST } },
-      { new: true },
+      { returnDocument: 'after' },
     );
     if (!charged) return { ok: false, reason: `Il faut ${FRAGMENT_DRAW_COST} fragments pour ce tirage.` };
     return {
@@ -134,7 +134,7 @@ async function chargeDraw({ userId, guildId, mode }) {
   const chargedProfile = await Profile.findOneAndUpdate(
     { _id: activeProfile._id, userId, guildId, jewels: { $gte: cost } },
     { $inc: { jewels: -cost } },
-    { new: true },
+    { returnDocument: 'after' },
   );
   if (!chargedProfile) return { ok: false, reason: `Il faut ${cost} Joyaux sur le profil actif.` };
   return {
@@ -202,7 +202,7 @@ async function performGachaDraw({ userId, guildId, mode, rng = Math.random }) {
         $set: generated.pity,
         $inc: { totalPulls: count, fragments: granted.fragmentsEarned },
       },
-      { new: true },
+      { returnDocument: 'after' },
     );
 
     return {

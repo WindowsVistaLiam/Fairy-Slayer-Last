@@ -31,11 +31,12 @@ Commandes principales :
 - Interfaces `/profil` et `/admin` en grand Canvas.
 - Panneaux Canvas adaptatifs aux contenus longs.
 - Inspection détaillée d’un profil depuis `/admin`, sans modification des données.
-- Gacha Fairy Tail persistant avec 34 cartes et cinq raretés.
+- Gacha Fairy Tail persistant avec 299 cartes et cinq raretés.
 - Tirage gratuit toutes les deux heures, tirages en Joyaux et tirage en fragments.
 - Pity garanti aux 10e, 50e et 100e tirages.
 - Doublons automatiquement convertis en fragments réutilisables.
 - Collection, catalogue, recherche, pagination et fiches de cartes en grand Canvas.
+- Images de cartes configurables par URL, avec cache, délai maximal et initiales de secours.
 
 ## Gacha Fairy Tail
 
@@ -47,6 +48,22 @@ Le gacha appartient au compte Discord sur le serveur. Les Joyaux dépensés prov
 - Tirage fragments : une carte pour 100 fragments.
 - Probabilités : 60 % Commune, 27 % Rare, 9 % Épique, 3,5 % Légendaire et 0,5 % Mythique.
 - Garanties : Épique au 10e tirage sans Épique, Légendaire au 50e sans Légendaire et Mythique au 100e sans Mythique.
+
+### Ajouter les images des cartes
+
+Édite `src/data/fairyTailCardImages.js` puis ajoute un lien direct HTTP(S) :
+
+```js
+const CARD_IMAGE_URLS = {
+  natsu_dragon_force: 'https://exemple.com/natsu-dragon-force.png',
+};
+
+const CHARACTER_IMAGE_URLS = {
+  natsu_dragnir: 'https://exemple.com/natsu.png',
+};
+```
+
+`CARD_IMAGE_URLS` personnalise une carte précise. `CHARACTER_IMAGE_URLS` applique la même image à toutes les variantes d’un personnage, sauf lorsqu’une image spécifique existe. Les liens doivent pointer directement vers une image publique de 10 Mo maximum. Si le lien échoue, le Canvas affiche automatiquement les initiales.
 
 ## Configuration depuis Discord
 
@@ -136,5 +153,5 @@ src/utils/           Fonctions partagées
 
 - Tester l’équilibrage des récompenses et des prix avec les joueurs.
 - Ajouter de nouveaux arcs narratifs et objets au fil des événements RP.
-- Enrichir les bannières gacha avec de nouvelles séries de cartes et événements limités.
+- Ajouter des bannières gacha temporaires et des événements limités.
 - Envisager une migration MongoDB du champ technique historique `jewels` vers `joyaux` lors d’une future maintenance dédiée.

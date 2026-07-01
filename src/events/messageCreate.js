@@ -19,7 +19,7 @@ module.exports = {
       const config = await GuildConfig.findOneAndUpdate(
         { guildId: message.guild.id },
         { $setOnInsert: { guildId: message.guild.id } },
-        { new: true, upsert: true },
+        { returnDocument: 'after', upsert: true },
       );
 
       if (!config.rpChannelIds.length || !config.rpChannelIds.includes(message.channel.id)) return;

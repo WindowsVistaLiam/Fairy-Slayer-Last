@@ -5,7 +5,7 @@ async function getOrCreatePlayer(userId, guildId) {
   return Player.findOneAndUpdate(
     { userId, guildId },
     { $setOnInsert: { userId, guildId } },
-    { new: true, upsert: true },
+    { returnDocument: 'after', upsert: true },
   );
 }
 
@@ -24,7 +24,7 @@ async function setActiveProfile(userId, guildId, profileId) {
   await Player.findOneAndUpdate(
     { userId, guildId },
     { $set: { activeProfileId: profileId } },
-    { upsert: true, new: true },
+    { upsert: true, returnDocument: 'after' },
   );
 }
 

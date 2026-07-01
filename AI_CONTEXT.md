@@ -48,7 +48,13 @@ Le `README.md` sert de référence fonctionnelle et de source d’idées. Le cod
 - Page `/profil` → Équipement dédiée : quatre slots, bonus et puissance totale.
 - Panneaux grand Canvas adaptatifs : hauteur dynamique, douze lignes visibles et résumé du surplus.
 - Inspection détaillée d’un profil depuis `/admin`, en lecture seule.
-- Gacha Fairy Tail avec 34 cartes, cinq raretés, tirages simple/multiple/gratuit et paiement en fragments.
+- Gacha Fairy Tail avec 299 cartes, cinq raretés, tirages simple/multiple/gratuit et paiement en fragments.
+- Les 34 cartes originales gardent leurs IDs ; 60 personnages reçoivent quatre éditions générées et 25 ont une édition Mythique supplémentaire.
+- Images configurables dans `src/data/fairyTailCardImages.js`, soit par `cardId`, soit par `characterId` pour toutes les variantes.
+- Le Canvas charge les liens HTTP(S) avec cache, limite de 10 Mo, timeout de 5 secondes et fallback sur les initiales.
+- Le Canvas gacha enregistre explicitement Cinzel Bold pour les titres et Marcellus pour les textes afin d’éviter les glyphes manquants et la police décorative illisible.
+- Catalogue et collection triés de Mythique à Commune, avec lignes colorées selon la rareté.
+- Les boutons de pagination utilisent toujours des IDs distincts, même sur une page unique, et le routeur attend les promesses pour empêcher un rejet Discord de faire tomber le processus.
 - Pity persistant : Épique à 10, Légendaire à 50 et Mythique à 100.
 - Doublons convertis automatiquement en fragments selon la rareté.
 - Collection et catalogue paginés avec recherche et fiches détaillées en grand Canvas.
@@ -80,6 +86,7 @@ Fichiers de code concernés :
 - `src/commands/collection.js`
 - `src/commands/gacha.js`
 - `src/data/fairyTailCards.js`
+- `src/data/fairyTailCardImages.js`
 - `src/features/admin/adminHub.js`
 - `src/features/gacha/gachaHub.js`
 - `src/interactions/router.js`
@@ -107,4 +114,5 @@ Dernières validations réussies : `node --check` sur tous les fichiers JavaScri
 - Ajuster l’équilibrage après retours des joueurs.
 - Ajouter des arcs narratifs, objets et missions saisonnières.
 - Ajouter des bannières limitées, favoris, échanges ou améliorations de cartes si le gacha doit évoluer vers la profondeur d’ArcaneRPG.
+- Remplir progressivement le registre d’images avec des liens directs stables et autorisés.
 - Préparer séparément une migration MongoDB de `jewels` vers `joyaux` si le renommage technique devient nécessaire.

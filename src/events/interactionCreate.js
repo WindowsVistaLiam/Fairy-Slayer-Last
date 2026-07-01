@@ -11,15 +11,15 @@ module.exports = {
           return interaction.reply({ content: 'Commande introuvable.', ephemeral: true });
         }
 
-        return command.execute(interaction, client);
+        return await command.execute(interaction, client);
       }
 
       if (interaction.isButton() || interaction.isStringSelectMenu()) {
-        return handleComponentInteraction(interaction);
+        return await handleComponentInteraction(interaction);
       }
 
       if (interaction.isModalSubmit()) {
-        return handleModalInteraction(interaction);
+        return await handleModalInteraction(interaction);
       }
 
       return null;

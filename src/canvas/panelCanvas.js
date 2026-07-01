@@ -272,7 +272,7 @@ function drawStat(ctx, stat, x, y, w, accent) {
   drawText(ctx, stat.value, x + 18, y + 43, 28, '#ffffff', 'bold', w - 36);
 }
 
-function drawLineItem(ctx, line, x, y, w, accent) {
+function drawLineItem(ctx, line, x, y, w, accent, textColor = '#f4f1ff') {
   roundRect(ctx, x, y, w, 60, 16);
   ctx.fillStyle = 'rgba(255,255,255,0.045)';
   ctx.fill();
@@ -290,7 +290,7 @@ function drawLineItem(ctx, line, x, y, w, accent) {
 
   const wrapped = wrapText(ctx, line, w - 72, 1);
 
-  drawText(ctx, wrapped[0] || '', x + 48, y + 17, 22, '#f4f1ff', 'regular', w - 72);
+  drawText(ctx, wrapped[0] || '', x + 48, y + 17, 22, textColor, 'regular', w - 72);
 }
 
 async function drawLogo(ctx, width, height) {
@@ -449,10 +449,12 @@ async function createPanelCanvas(options) {
   const lineGap = 14;
 
   for (const rawLine of visibleLines) {
-    const wrapped = wrapText(ctx, rawLine, contentW - 100, 1);
+    const lineText = typeof rawLine === 'object' && rawLine !== null ? rawLine.text : rawLine;
+    const lineColor = typeof rawLine === 'object' && rawLine !== null ? rawLine.color : accent;
+    const wrapped = wrapText(ctx, lineText, contentW - 100, 1);
     const line = wrapped[0] || '';
 
-    drawLineItem(ctx, line, contentX + 30, cursorY, contentW - 60, accent);
+    drawLineItem(ctx, line, contentX + 30, cursorY, contentW - 60, lineColor || accent, lineColor || '#f4f1ff');
 
     cursorY += 60 + lineGap;
   }

@@ -194,8 +194,8 @@ function sortCollection(entries) {
 
 function getPaginationRow(prefix, page, totalPages, backId = 'gacha:home') {
   return new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`${prefix}:${Math.max(0, page - 1)}`).setLabel('Précédente').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
-    new ButtonBuilder().setCustomId(`${prefix}:${Math.min(totalPages - 1, page + 1)}`).setLabel('Suivante').setEmoji('➡️').setStyle(ButtonStyle.Primary).setDisabled(page >= totalPages - 1),
+    new ButtonBuilder().setCustomId(`${prefix}:${Math.max(0, page - 1)}:previous`).setLabel('Précédente').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
+    new ButtonBuilder().setCustomId(`${prefix}:${Math.min(totalPages - 1, page + 1)}:next`).setLabel('Suivante').setEmoji('➡️').setStyle(ButtonStyle.Primary).setDisabled(page >= totalPages - 1),
     new ButtonBuilder().setCustomId(backId).setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
   );
 }
@@ -227,7 +227,10 @@ async function showCollection(interaction, targetUserId = interaction.user.id, r
   const pageEntries = sorted.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
   const totalValue = sorted.reduce((sum, entry) => sum + Number(entry.card.value || 0), 0);
   const lines = pageEntries.length
-    ? pageEntries.map((entry) => `${entry.card.emoji} ${entry.card.name} — ${entry.card.rarityLabel} — ${entry.card.value} pts${entry.copiesSeen > 1 ? ` — obtenue ×${entry.copiesSeen}` : ''}`)
+    ? pageEntries.map((entry) => ({
+      text: `${entry.card.emoji} ${entry.card.name} — ${entry.card.rarityLabel} — ${entry.card.value} pts${entry.copiesSeen > 1 ? ` — obtenue ×${entry.copiesSeen}` : ''}`,
+      color: entry.card.color,
+    }))
     : ['Cette collection est encore vide. Utilise `/gacha` pour obtenir ta première carte.'];
   const attachment = await createPanelCanvas({
     fileName: 'fairy-slayer-collection.png',
@@ -273,21 +276,24 @@ async function showCatalog(interaction, requestedPage = 0, search = '') {
   const page = Math.max(0, Math.min(totalPages - 1, Number(requestedPage) || 0));
   const pageCards = cards.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
   const lines = pageCards.length
-    ? pageCards.map((card) => `${card.emoji} ${card.name} — ${card.rarityLabel} — ${card.faction}`)
+    ? pageCards.map((card) => ({
+      text: `${card.emoji} ${card.name} — ${card.rarityLabel} — ${card.faction}`,
+      color: card.color,
+    }))
     : [`Aucune carte trouvée pour « ${search} ».`];
   const attachment = await createPanelCanvas({
     fileName: 'fairy-slayer-cartes.png',
     variant: 'gacha',
     section: 'Catalogue des cartes',
     title: search ? `Recherche : ${search}` : `${FAIRY_TAIL_CARDS.length} cartes disponibles`,
-    subtitle: `Page ${page + 1}/${totalPages} — des héros familiers aux formes mythiques.`,
+    subtitle: `Page ${page + 1}/${totalPages} — tri Mythique → Commune.`,
     lines,
     footer: 'Raretés : Commune, Rare, Épique, Légendaire et Mythique.',
   });
   const encodedSearch = encodeSearch(search);
   const paginationRow = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId(`gacha:catalog:${Math.max(0, page - 1)}:${encodedSearch}`).setLabel('Précédente').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
-    new ButtonBuilder().setCustomId(`gacha:catalog:${Math.min(totalPages - 1, page + 1)}:${encodedSearch}`).setLabel('Suivante').setEmoji('➡️').setStyle(ButtonStyle.Primary).setDisabled(page >= totalPages - 1),
+    new ButtonBuilder().setCustomId(`gacha:catalog:${Math.max(0, page - 1)}:${encodedSearch}:previous`).setLabel('Précédente').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
+    new ButtonBuilder().setCustomId(`gacha:catalog:${Math.min(totalPages - 1, page + 1)}:${encodedSearch}:next`).setLabel('Suivante').setEmoji('➡️').setStyle(ButtonStyle.Primary).setDisabled(page >= totalPages - 1),
     new ButtonBuilder().setCustomId('gacha:home').setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
   );
   const selectRow = getCardSelectRow(`gacha:catalog_select:${page}:${encodedSearch}`, pageCards);
@@ -313,7 +319,7 @@ async function showCardDetail(interaction, cardId, backCustomId, ownership = nul
   });
   return respond(interaction, createLargeCanvasPayload({
     attachment,
-    content: `**${card.name}** — ${card.description}`,
+    content: `**${card.name}** — ${card.description}\nID carte : \`${card.cardId}\` • ID personnage : \`${card.characterId}\``,
     components: [new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId(backCustomId).setLabel('Retour à la liste').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
       new ButtonBuilder().setCustomId('gacha:home').setLabel('Portail gacha').setEmoji('✨').setStyle(ButtonStyle.Primary),

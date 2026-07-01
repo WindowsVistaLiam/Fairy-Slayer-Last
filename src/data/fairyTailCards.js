@@ -1,3 +1,5 @@
+const { getConfiguredCardImage } = require('./fairyTailCardImages');
+
 const RARITIES = {
   common: { label: 'Commune', color: '#aab2bd', emoji: '⚪', value: 25, duplicateFragments: 5 },
   rare: { label: 'Rare', color: '#4da3ff', emoji: '🔵', value: 75, duplicateFragments: 15 },
@@ -6,9 +8,19 @@ const RARITIES = {
   mythic: { label: 'Mythique', color: '#ff5d73', emoji: '🔴', value: 1800, duplicateFragments: 500 },
 };
 
-function card(cardId, characterName, title, rarity, faction, description) {
+function toKey(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_|_$/g, '');
+}
+
+function card(cardId, characterName, title, rarity, faction, description, characterId = toKey(characterName)) {
   return {
     cardId,
+    characterId,
     characterName,
     name: `${characterName} — ${title}`,
     title,
@@ -20,10 +32,11 @@ function card(cardId, characterName, title, rarity, faction, description) {
     duplicateFragments: RARITIES[rarity].duplicateFragments,
     faction,
     description,
+    imageUrl: getConfiguredCardImage(cardId, characterId),
   };
 }
 
-const FAIRY_TAIL_CARDS = [
+const CORE_CARDS = [
   card('happy_compagnon_aile', 'Happy', 'Compagnon ailé', 'common', 'Fairy Tail', 'Un Exceed joyeux qui ne laisse jamais Natsu partir seul à l’aventure.'),
   card('carla_voyante', 'Carla', 'Voyante céleste', 'common', 'Fairy Tail', 'Une Exceed calme et perspicace dotée d’un rare pouvoir de prémonition.'),
   card('plue_esprit_niche', 'Plue', 'Esprit de compagnie', 'common', 'Esprits célestes', 'Le plus attendrissant des esprits célestes, fidèle malgré son étrange apparence.'),
@@ -63,6 +76,71 @@ const FAIRY_TAIL_CARDS = [
   card('erza_nakagami', 'Erza Scarlett', 'Armure Nakagami', 'mythic', 'Fairy Tail', 'Une armure légendaire qui tranche la magie et consume une énergie immense.'),
   card('lucy_star_dress', 'Lucy Heartfilia', 'Star Dress suprême', 'mythic', 'Fairy Tail', 'Lucy unit les pouvoirs de ses esprits et fait rayonner tout le ciel étoilé.'),
 ];
+
+const CHARACTER_ROSTER = [
+  ['Natsu Dragnir', 'Fairy Tail'], ['Lucy Heartfilia', 'Fairy Tail'], ['Gray Fullbuster', 'Fairy Tail'],
+  ['Erza Scarlett', 'Fairy Tail'], ['Wendy Marvel', 'Fairy Tail'], ['Happy', 'Fairy Tail'],
+  ['Carla', 'Fairy Tail'], ['Gajeel Redfox', 'Fairy Tail'], ['Levy McGarden', 'Shadow Gear'],
+  ['Juvia Lockser', 'Fairy Tail'], ['Luxus Draer', 'Fairy Tail'], ['Mirajane Strauss', 'Fairy Tail'],
+  ['Elfman Strauss', 'Fairy Tail'], ['Lisanna Strauss', 'Fairy Tail'], ['Cana Alberona', 'Fairy Tail'],
+  ['Fried Justine', 'Raijinshû'], ['Evergreen', 'Raijinshû'], ['Bixrow', 'Raijinshû'],
+  ['Makarov Draer', 'Fairy Tail'], ['Gildarts Clive', 'Fairy Tail'], ['Mest Gryder', 'Fairy Tail'],
+  ['Panther Lily', 'Fairy Tail'], ['Macao Conbolt', 'Fairy Tail'], ['Wakaba Mine', 'Fairy Tail'],
+  ['Romeo Conbolt', 'Fairy Tail'], ['Bisca Connell', 'Fairy Tail'], ['Alzack Connell', 'Fairy Tail'],
+  ['Jet', 'Shadow Gear'], ['Droy', 'Shadow Gear'], ['Sting Eucliffe', 'Sabertooth'],
+  ['Rogue Cheney', 'Sabertooth'], ['Yukino Agria', 'Sabertooth'], ['Minerva Orland', 'Sabertooth'],
+  ['Rufus Lohr', 'Sabertooth'], ['Orga Nanagear', 'Sabertooth'], ['Kagura Mikazuchi', 'Mermaid Heel'],
+  ['Ichiya Vandalay Kotobuki', 'Blue Pegasus'], ['Lyon Vastia', 'Lamia Scale'], ['Cherrya Blendy', 'Lamia Scale'],
+  ['Jura Neekis', 'Lamia Scale'], ['Jellal Fernandes', 'Crime Sorcière'], ['Meredy', 'Crime Sorcière'],
+  ['Ultear Milkovich', 'Crime Sorcière'], ['Zeleph', 'Empire Alvarez'], ['Mavis Vermillion', 'Fairy Tail'],
+  ['Acnologia', 'Indépendant'], ['Irene Belserion', 'Spriggan 12'], ['August', 'Spriggan 12'],
+  ['Brandish μ', 'Spriggan 12'], ['Dimaria Yesta', 'Spriggan 12'], ['Invel Yura', 'Spriggan 12'],
+  ['God Serena', 'Spriggan 12'], ['Ajeel Raml', 'Spriggan 12'], ['Wahl Icht', 'Spriggan 12'],
+  ['Neinhart', 'Spriggan 12'], ['Jacob Lessio', 'Spriggan 12'], ['Hadès', 'Grimoire Heart'],
+  ['Larcade Dragneel', 'Empire Alvarez'], ['Anna Heartfilia', 'Constellationnistes'], ['Aquarius', 'Esprits célestes'],
+];
+
+const EDITIONS = [
+  ['portrait_guilde', 'Portrait de guilde', 'common', (name, faction) => `${name} rejoint la collection dans une édition classique aux couleurs de ${faction}.`],
+  ['mission_perilleuse', 'Mission périlleuse', 'rare', (name) => `${name} affronte une mission où expérience, courage et magie font toute la différence.`],
+  ['pouvoir_libere', 'Pouvoir libéré', 'epic', (name) => `${name} cesse de retenir sa magie et révèle une puissance capable de renverser le combat.`],
+  ['legende_vivante', 'Légende vivante', 'legendary', (name, faction) => `${name} entre dans la légende de ${faction} après un affrontement mémorable.`],
+];
+
+const MYTHIC_CHARACTERS = new Set([
+  'natsu_dragnir', 'lucy_heartfilia', 'gray_fullbuster', 'erza_scarlett', 'wendy_marvel',
+  'gajeel_redfox', 'luxus_draer', 'mirajane_strauss', 'makarov_draer', 'gildarts_clive',
+  'sting_eucliffe', 'rogue_cheney', 'minerva_orland', 'kagura_mikazuchi', 'jura_neekis',
+  'jellal_fernandes', 'ultear_milkovich', 'zeleph', 'mavis_vermillion', 'acnologia',
+  'irene_belserion', 'august', 'brandish', 'god_serena', 'hades',
+]);
+
+const SERIES_CARDS = CHARACTER_ROSTER.flatMap(([characterName, faction]) => {
+  const characterId = toKey(characterName);
+  const editions = EDITIONS.map(([editionId, title, rarity, describe]) => card(
+    `series_${characterId}_${editionId}`,
+    characterName,
+    title,
+    rarity,
+    faction,
+    describe(characterName, faction),
+    characterId,
+  ));
+  if (MYTHIC_CHARACTERS.has(characterId)) {
+    editions.push(card(
+      `series_${characterId}_apogee_magique`,
+      characterName,
+      'Apogée magique',
+      'mythic',
+      faction,
+      `${characterName} atteint l’apogée de sa magie dans une édition mythique baignée d’énergie pure.`,
+      characterId,
+    ));
+  }
+  return editions;
+});
+
+const FAIRY_TAIL_CARDS = [...CORE_CARDS, ...SERIES_CARDS];
 
 const RARITY_ORDER = ['common', 'rare', 'epic', 'legendary', 'mythic'];
 
