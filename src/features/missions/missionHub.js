@@ -1,3 +1,4 @@
+const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
 const {
   ActionRowBuilder,
   ButtonBuilder,
@@ -266,9 +267,10 @@ async function showMissionBoard(interaction) {
   });
 
   return respondCanvas(interaction, {
-    embeds: [createCanvasEmbed(fileName)],
-    components: getMissionBoardRows(missions),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getMissionBoardRows(missions),
+    }),
   });
 }
 
@@ -333,9 +335,10 @@ async function showMissionDetails(interaction, missionId) {
   });
 
   return respondCanvas(interaction, {
-    embeds: [createCanvasEmbed(fileName)],
-    components: getMissionDetailRows(mission, existingStatus),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getMissionDetailRows(mission, existingStatus),
+    }),
   });
 }
 
@@ -381,9 +384,10 @@ async function showActiveMissions(interaction) {
   });
 
   return respondCanvas(interaction, {
-    embeds: [createCanvasEmbed(fileName)],
-    components: getActiveMissionRows(profileMissions),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getActiveMissionRows(profileMissions),
+    }),
   });
 }
 
@@ -586,9 +590,10 @@ async function validateMission(interaction, profileMissionId) {
   });
 
   return respondCanvas(interaction, {
-    embeds: [createCanvasEmbed(fileName, 0x57f287)],
-    components: getMissionBoardRows(getAvailableMissions()),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getMissionBoardRows(getAvailableMissions()),
+    }),
   });
 }
 
@@ -643,9 +648,10 @@ async function failMission(interaction, profileMissionId) {
   });
 
   return respondCanvas(interaction, {
-    embeds: [createCanvasEmbed(fileName, 0xed4245)],
-    components: getMissionBoardRows(getAvailableMissions()),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getMissionBoardRows(getAvailableMissions()),
+    }),
   });
 }
 

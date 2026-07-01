@@ -13,6 +13,7 @@ const Rumor = require('../../models/Rumor');
 const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { getActiveProfile } = require('../../utils/activeProfile');
 const { formatNumber } = require('../../utils/format');
+const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
 
 const {
   addItemToInventory,
@@ -273,9 +274,10 @@ async function renderShop(interaction, filterType = null) {
   });
 
   const payload = {
-    embeds: [createCanvasEmbed(fileName)],
-    components: getBuyRows(items, profile, rumors, powerInfo),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getBuyRows(items, profile, rumors, powerInfo),
+    }),
   };
 
   if (interaction.isButton() || interaction.isStringSelectMenu()) {
@@ -336,9 +338,10 @@ async function renderSellMenu(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName)],
-    components: getSellRows(inventoryItems),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getSellRows(inventoryItems),
+    }),
   });
 }
 

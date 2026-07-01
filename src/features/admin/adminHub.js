@@ -17,6 +17,7 @@ const { normalizeMageRank } = require('../../utils/ranks');
 const { clampReputation } = require('../../utils/reputation');
 const { formatNumber, truncateText } = require('../../utils/format');
 const { applyXp } = require('../../utils/xp');
+const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
 
 const {
   addItemToInventory,
@@ -222,9 +223,10 @@ async function openAdminHub(interaction) {
   });
 
   return interaction.reply({
-    embeds: [createCanvasEmbed(fileName)],
-    components: getAdminRows(),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getAdminRows(),
+    }),
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -255,9 +257,10 @@ async function showRecentProfiles(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName)],
-    components: getAdminRows(),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getAdminRows(),
+    }),
   });
 }
 
@@ -281,9 +284,10 @@ async function showItemCatalog(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName)],
-    components: getAdminRows(),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getAdminRows(),
+    }),
   });
 }
 
@@ -413,8 +417,9 @@ async function handleEditProfileModal(interaction) {
   });
 
   return interaction.reply({
-    embeds: [createCanvasEmbed(fileName)],
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+    }),
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -505,8 +510,9 @@ async function handleJewelsModal(interaction) {
   });
 
   return interaction.reply({
-    embeds: [createCanvasEmbed(fileName)],
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+    }),
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -585,8 +591,9 @@ async function handleXpModal(interaction) {
   });
 
   return interaction.reply({
-    embeds: [createCanvasEmbed(fileName)],
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+    }),
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -688,8 +695,9 @@ async function handleGiveItemModal(interaction) {
   });
 
   return interaction.reply({
-    embeds: [createCanvasEmbed(fileName)],
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+    }),
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -798,8 +806,9 @@ async function handleRemoveItemModal(interaction) {
   });
 
   return interaction.reply({
-    embeds: [createCanvasEmbed(fileName)],
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+    }),
     flags: MessageFlags.Ephemeral,
   });
 }
@@ -823,9 +832,10 @@ async function showConfigInfo(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName)],
-    components: getAdminRows(),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getAdminRows(),
+    }),
   });
 }
 

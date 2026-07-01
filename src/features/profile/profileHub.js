@@ -49,6 +49,7 @@ const {
 const { normalizeMageRank } = require('../../utils/ranks');
 const { getReputationLabel } = require('../../utils/reputation');
 const { formatNumber, truncateText } = require('../../utils/format');
+const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
 
 const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -254,9 +255,10 @@ async function openProfileHub(interaction) {
   const attachment = await createProfileCanvas(profile, interaction.user);
 
   const message = await replyOrUpdate(interaction, {
-    embeds: [createCanvasEmbed(fileName)],
-    components: rows,
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: rows,
+    }),
   });
 
   scheduleProfileMenuExpiration(message, rows);
@@ -416,9 +418,10 @@ async function showSwitchMenu(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName)],
-    components: rows,
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: rows,
+    }),
   });
 }
 
@@ -832,9 +835,10 @@ async function showInventory(interaction, category = 'all') {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
-    components: getInventoryRowsWithSelect(filteredItems, category),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getInventoryRowsWithSelect(filteredItems, category),
+    }),
   });
 }
 
@@ -901,9 +905,10 @@ async function showInventoryItem(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
-    components: getInventoryItemDetailRows(inventoryItems, item, ownedItem),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getInventoryItemDetailRows(inventoryItems, item, ownedItem),
+    }),
   });
 }
 
@@ -967,9 +972,10 @@ async function useInventoryItem(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
-    components: getInventoryRowsWithSelect(inventoryItems, 'all'),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getInventoryRowsWithSelect(inventoryItems, 'all'),
+    }),
   });
 }
 
@@ -1019,9 +1025,10 @@ async function equipInventoryItemAction(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
-    components: getInventoryItemDetailRows(inventoryItems, result.item, ownedItem),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getInventoryItemDetailRows(inventoryItems, result.item, ownedItem),
+    }),
   });
 }
 
@@ -1071,9 +1078,10 @@ async function unequipInventoryItemAction(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0x2b8cff)],
-    components: getInventoryItemDetailRows(inventoryItems, result.item, ownedItem),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getInventoryItemDetailRows(inventoryItems, result.item, ownedItem),
+    }),
   });
 }
 
@@ -1113,9 +1121,10 @@ async function showMissions(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0xffd166)],
-    components: getMainRows(),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getMainRows(),
+    }),
   });
 }
 
@@ -1154,9 +1163,10 @@ async function showRelations(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0xffa94d)],
-    components: getMainRows(),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getMainRows(),
+    }),
   });
 }
 
@@ -1198,9 +1208,10 @@ async function showRumors(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0xc084fc)],
-    components: getMainRows(),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getMainRows(),
+    }),
   });
 }
 
@@ -1240,9 +1251,10 @@ async function showReputation(interaction) {
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0x7c5cff)],
-    components: getMainRows(),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getMainRows(),
+    }),
   });
 }
 

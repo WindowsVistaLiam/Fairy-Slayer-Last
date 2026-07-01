@@ -11,6 +11,7 @@ const ProfileMission = require('../../models/ProfileMission');
 const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { formatNumber } = require('../../utils/format');
 const { getProfilePowerWithEquipment } = require('../../utils/inventoryUtils');
+const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
 
 function createCanvasEmbed(fileName) {
   return new EmbedBuilder()
@@ -156,9 +157,10 @@ async function buildRankingPayload(guildId, type = 'level') {
   });
 
   return {
-    embeds: [createCanvasEmbed(fileName)],
-    components: getRankingRows(type),
-    files: [attachment],
+    ...createLargeCanvasPayload({
+      attachment,
+      components: getRankingRows(type),
+    }),
   };
 }
 
