@@ -13,8 +13,19 @@ const Rumor = require('../../models/Rumor');
 const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { getActiveProfile } = require('../../utils/activeProfile');
 const { formatNumber } = require('../../utils/format');
-const { addItemToInventory } = require('../../utils/inventoryUtils');
-const { getShopItems, getItemById, getRarityLabel, getTypeLabel } = require('../../data/items');
+
+const {
+  addItemToInventory,
+  removeItemFromInventory,
+  getInventoryDetails,
+} = require('../../utils/inventoryUtils');
+
+const {
+  getShopItems,
+  getItemById,
+  getRarityLabel,
+  getTypeLabel,
+} = require('../../data/items');
 
 function createCanvasEmbed(fileName, color = 0x9b8cff) {
   return new EmbedBuilder()
@@ -96,7 +107,7 @@ function calculateShopPrice(basePrice, profile, rumors = []) {
   return Math.max(1, Math.floor(basePrice * multiplier));
 }
 
-function getShopRows(items, profile, rumors) {
+function getBuyRows(items, profile, rumors) {
   const options = items.slice(0, 25).map((item) => {
     const finalPrice = calculateShopPrice(item.basePrice, profile, rumors);
     const availability = canBuyItem(profile, item);
@@ -107,20 +118,24 @@ function getShopRows(items, profile, rumors) {
       .setValue(item.itemId);
   });
 
-  const select = new StringSelectMenuBuilder()
-    .setCustomId('shop:buy')
-    .setPlaceholder('Choisir un objet à acheter')
-    .addOptions(options);
+  const rows = [];
 
-  return [
-    new ActionRowBuilder().addComponents(select),
+  if (options.length) {
+    const select = new StringSelectMenuBuilder()
+      .setCustomId('shop:buy')
+      .setPlaceholder('Choisir un objet à acheter')
+      .addOptions(options);
 
+    rows.push(new ActionRowBuilder().addComponents(select));
+  }
+
+  rows.push(
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('shop:refresh')
-        .setLabel('Actualiser')
-        .setEmoji('🔄')
-        .setStyle(ButtonStyle.Secondary),
+        .setLabel('Tout')
+        .setEmoji('🏪')
+        .setStyle(ButtonStyle.Primary),
 
       new ButtonBuilder()
         .setCustomId('shop:consommable')
@@ -139,8 +154,46 @@ function getShopRows(items, profile, rumors) {
         .setLabel('Lacrimas')
         .setEmoji('💠')
         .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('shop:sell-menu')
+        .setLabel('Vendre')
+        .setEmoji('💰')
+        .setStyle(ButtonStyle.Success),
     ),
-  ];
+  );
+
+  return rows;
+}
+
+function getSellRows(inventoryItems) {
+  const rows = [];
+
+  if (inventoryItems.length) {
+    const options = inventoryItems.slice(0, 25).map((item) => new StringSelectMenuOptionBuilder()
+      .setLabel(item.name.slice(0, 100))
+      .setDescription(`x${item.quantity} - revente ${formatNumber(item.sellPrice)} Jewels`.slice(0, 100))
+      .setValue(item.itemId));
+
+    const select = new StringSelectMenuBuilder()
+      .setCustomId('shop:sell')
+      .setPlaceholder('Choisir un objet à vendre')
+      .addOptions(options);
+
+    rows.push(new ActionRowBuilder().addComponents(select));
+  }
+
+  rows.push(
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('shop:back')
+        .setLabel('Retour boutique')
+        .setEmoji('↩️')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  );
+
+  return rows;
 }
 
 async function renderShop(interaction, filterType = null) {
@@ -189,7 +242,7 @@ async function renderShop(interaction, filterType = null) {
 
   const payload = {
     embeds: [createCanvasEmbed(fileName)],
-    components: getShopRows(items, profile, rumors),
+    components: getBuyRows(items, profile, rumors),
     files: [attachment],
   };
 
@@ -198,6 +251,56 @@ async function renderShop(interaction, filterType = null) {
   }
 
   return interaction.reply(payload);
+}
+
+async function renderSellMenu(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+
+  if (!profile) {
+    return interaction.reply({
+      content: 'Tu dois d’abord créer un personnage avec `/profil`.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const inventoryItems = await getInventoryDetails(profile._id);
+
+  const totalSellValue = inventoryItems.reduce(
+    (total, item) => total + Number(item.sellPrice || 0) * Number(item.quantity || 0),
+    0,
+  );
+
+  const lines = inventoryItems.length
+    ? inventoryItems.slice(0, 8).map((item) => (
+      `${item.name} x${item.quantity} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - revente ${formatNumber(item.sellPrice)} Jewels`
+    ))
+    : [
+      'Ton inventaire est vide. Achète des objets dans la boutique ou demande au staff de t’en donner.',
+    ];
+
+  const fileName = 'fairy-slayer-vente.png';
+
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'shop',
+    section: `Vente — ${profile.characterName}`,
+    title: 'Revendre un objet',
+    subtitle: `Valeur totale de revente : ${formatNumber(totalSellValue)} Jewels`,
+    stats: [
+      { label: 'Jewels', value: formatNumber(profile.jewels) },
+      { label: 'Objets', value: formatNumber(inventoryItems.reduce((total, item) => total + item.quantity, 0)) },
+      { label: 'Valeur', value: formatNumber(totalSellValue) },
+      { label: 'Rang', value: profile.mageRank },
+    ],
+    lines,
+    footer: 'Sélectionne un objet dans le menu sous le Canvas pour en vendre 1 exemplaire.',
+  });
+
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName)],
+    components: getSellRows(inventoryItems),
+    files: [attachment],
+  });
 }
 
 async function openShopHub(interaction) {
@@ -248,19 +351,64 @@ async function buyItem(interaction) {
   await profile.save();
   await addItemToInventory(profile._id, item.itemId, 1);
 
-  await interaction.reply({
+  return interaction.reply({
     content: `Achat réussi : **${item.name}** pour **${formatNumber(finalPrice)} Jewels**.`,
     flags: MessageFlags.Ephemeral,
   });
+}
 
-  return null;
+async function sellItem(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+
+  if (!profile) {
+    return interaction.reply({
+      content: 'Tu dois d’abord créer un personnage avec `/profil`.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const itemId = interaction.values[0];
+  const item = getItemById(itemId);
+
+  if (!item) {
+    return interaction.reply({
+      content: 'Cet objet est introuvable.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const removed = await removeItemFromInventory(profile._id, itemId, 1);
+
+  if (!removed) {
+    return interaction.reply({
+      content: `Tu ne possèdes pas **${item.name}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const sellPrice = Number(item.sellPrice || 0);
+
+  profile.jewels += sellPrice;
+
+  await profile.save();
+
+  return interaction.reply({
+    content: `Vente réussie : **${item.name}** vendu pour **${formatNumber(sellPrice)} Jewels**.`,
+    flags: MessageFlags.Ephemeral,
+  });
 }
 
 async function handleShopComponent(interaction) {
   const id = interaction.customId;
 
   if (id === 'shop:buy') return buyItem(interaction);
+  if (id === 'shop:sell') return sellItem(interaction);
+
   if (id === 'shop:refresh') return renderShop(interaction);
+  if (id === 'shop:back') return renderShop(interaction);
+
+  if (id === 'shop:sell-menu') return renderSellMenu(interaction);
+
   if (id === 'shop:consommable') return renderShop(interaction, 'consommable');
   if (id === 'shop:equipement') return renderShop(interaction, 'equipement');
   if (id === 'shop:lacrima') return renderShop(interaction, 'lacrima');
