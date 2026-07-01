@@ -7,6 +7,7 @@ const { getXpNeeded } = require('../utils/xp');
 const { getRankLabel } = require('../utils/ranks');
 const { getReputationLabel } = require('../utils/reputation');
 const { formatNumber, truncateText } = require('../utils/format');
+const { getInventorySummary } = require('../utils/inventoryUtils');
 
 const FONT_TITLE_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'crown_title', 'CROWNT.TTF');
 const FONT_REGULAR_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Marcellus', 'Marcellus-Regular.ttf');
@@ -342,6 +343,38 @@ function drawEmptyAvatarPlaceholder(ctx, x, y, w, h) {
   drawCenteredText(ctx, 'Utilise Modifier l’image', x, y + 255, w, 18, '#cec6f6', 'regular');
 }
 
+async function getEquippedProfileItems(profile) {
+  if (!profile?._id) {
+    return {
+      equipment: 'Aucun équipement',
+      lacrima: 'Aucune lacrima',
+    };
+  }
+
+  try {
+    const summary = await getInventorySummary(profile._id);
+
+    const equippedEquipment = summary.equippedItems.find((item) => item.type === 'equipement');
+    const equippedLacrima = summary.equippedItems.find((item) => item.type === 'lacrima');
+
+    return {
+      equipment: equippedEquipment
+        ? truncateText(equippedEquipment.name, 34)
+        : 'Aucun équipement',
+      lacrima: equippedLacrima
+        ? truncateText(equippedLacrima.name, 34)
+        : 'Aucune lacrima',
+    };
+  } catch (error) {
+    console.warn('⚠️ Impossible de récupérer les objets équipés du profil :', error.message);
+
+    return {
+      equipment: 'Équipement indisponible',
+      lacrima: 'Lacrima indisponible',
+    };
+  }
+}
+
 async function createProfileCanvas(profile, discordUser) {
   ensureFonts();
 
@@ -365,6 +398,7 @@ async function createProfileCanvas(profile, discordUser) {
   const reputation = Number(profile?.reputation || 0);
   const xpNeeded = getXpNeeded(level);
   const xpProgress = xpNeeded > 0 ? xp / xpNeeded : 0;
+  const equippedItems = await getEquippedProfileItems(profile);
 
   // Fond général
   const bg = ctx.createLinearGradient(0, 0, width, height);
@@ -527,29 +561,51 @@ async function createProfileCanvas(profile, discordUser) {
   drawText(ctx, `${formatNumber(xp)} / ${formatNumber(xpNeeded)} XP`, 965, 590, 18, '#cec6f6', 'bold');
   drawBar(ctx, 496, 626, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
 
-  // Description
-  roundRect(ctx, 100, 680, 720, 70, 18);
-  ctx.fillStyle = 'rgba(255,255,255,0.06)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-  ctx.stroke();
+// Description + équipement actif
+roundRect(ctx, 100, 675, 720, 85, 18);
+ctx.fillStyle = 'rgba(255,255,255,0.06)';
+ctx.fill();
+ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+ctx.stroke();
 
-  drawText(ctx, 'DESCRIPTION', 122, 692, 16, '#cec6f6', 'bold');
-  drawWrappedText(ctx, description, 122, 716, 675, 20, 2, 18, '#ffffff');
+drawText(ctx, 'DESCRIPTION', 122, 687, 15, '#cec6f6', 'bold');
+drawWrappedText(ctx, description, 122, 710, 675, 18, 1, 16, '#ffffff');
+
+drawText(
+  ctx,
+  `Équipement : ${equippedItems.equipment}`,
+  122,
+  731,
+  15,
+  '#ffcf63',
+  'bold',
+  675,
+);
+
+drawText(
+  ctx,
+  `Lacrima : ${equippedItems.lacrima}`,
+  122,
+  750,
+  15,
+  '#3bd6ff',
+  'bold',
+  675,
+);
 
   // Stats bas
-  drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 680, 180, 70, '#ffcf63');
+drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 675, 180, 85, '#ffcf63');
 
-  drawInfoBox(
-    ctx,
-    'RÉPUTATION',
-    `${reputation} · ${getReputationLabel(reputation)}`,
-      1050,
-      680,
-      210,
-      70,
-    '#7f5cff',
-  );
+drawInfoBox(
+  ctx,
+  'RÉPUTATION',
+  `${reputation} · ${getReputationLabel(reputation)}`,
+  1050,
+  675,
+  210,
+  85,
+  '#7f5cff',
+);
 
   return new AttachmentBuilder(await canvas.encode('png'), {
     name: 'fairy-slayer-profil.png',
