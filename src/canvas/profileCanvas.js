@@ -562,21 +562,21 @@ async function createProfileCanvas(profile, discordUser) {
   drawBar(ctx, 496, 626, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
 
 // Description + équipement actif
-roundRect(ctx, 100, 675, 720, 85, 18);
+roundRect(ctx, 100, 655, 720, 85, 18);
 ctx.fillStyle = 'rgba(255,255,255,0.06)';
 ctx.fill();
 ctx.strokeStyle = 'rgba(255,255,255,0.10)';
 ctx.stroke();
 
-drawText(ctx, 'DESCRIPTION', 122, 687, 15, '#cec6f6', 'bold');
-drawWrappedText(ctx, description, 122, 710, 675, 18, 1, 16, '#ffffff');
+drawText(ctx, 'DESCRIPTION', 122, 667, 14, '#cec6f6', 'bold');
+drawWrappedText(ctx, description, 122, 690, 675, 17, 1, 15, '#ffffff');
 
 drawText(
   ctx,
   `Équipement : ${equippedItems.equipment}`,
   122,
-  731,
-  15,
+  713,
+  14,
   '#ffcf63',
   'bold',
   675,
@@ -586,22 +586,22 @@ drawText(
   ctx,
   `Lacrima : ${equippedItems.lacrima}`,
   122,
-  750,
-  15,
+  731,
+  14,
   '#3bd6ff',
   'bold',
   675,
 );
 
   // Stats bas
-drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 675, 180, 85, '#ffcf63');
+drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 655, 180, 85, '#ffcf63');
 
 drawInfoBox(
   ctx,
   'RÉPUTATION',
   `${reputation} · ${getReputationLabel(reputation)}`,
   1050,
-  675,
+  655,
   210,
   85,
   '#7f5cff',
