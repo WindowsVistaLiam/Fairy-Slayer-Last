@@ -10,6 +10,11 @@ const {
   TextInputStyle,
 } = require('discord.js');
 
+const {
+  getInventorySummary,
+  formatInventoryLines,
+} = require('../../utils/inventoryUtils');
+
 const Profile = require('../../models/Profile');
 const Inventory = require('../../models/Inventory');
 const ProfileMission = require('../../models/ProfileMission');
@@ -541,11 +546,8 @@ async function showInventory(interaction) {
     return openProfileHub(interaction);
   }
 
-  const inventory = await Inventory.findOne({
-    profileId: profile._id,
-  });
-
-  const itemCount = inventory?.items?.reduce((total, item) => total + item.quantity, 0) || 0;
+  const summary = await getInventorySummary(profile._id);
+  const lines = formatInventoryLines(summary.items, 8);
 
   const fileName = 'fairy-slayer-inventaire.png';
 
@@ -553,20 +555,16 @@ async function showInventory(interaction) {
     fileName,
     variant: 'inventory',
     section: `Inventaire — ${profile.characterName}`,
-    title: `${formatNumber(itemCount)} objet(s) possédé(s)`,
-    subtitle: 'La grille détaillée d’objets arrivera dans la V2.',
+    title: `${formatNumber(summary.totalQuantity)} objet(s) possédé(s)`,
+    subtitle: `Valeur de revente estimée : ${formatNumber(summary.totalValue)} Jewels`,
     stats: [
       { label: 'Jewels', value: formatNumber(profile.jewels) },
-      { label: 'Rang', value: profile.mageRank },
-      { label: 'Puissance', value: formatNumber(profile.powerLevel) },
-      { label: 'Objets', value: formatNumber(itemCount) },
+      { label: 'Objets', value: formatNumber(summary.totalQuantity) },
+      { label: 'Équipements', value: formatNumber(summary.byType.equipement || 0) },
+      { label: 'Lacrimas', value: formatNumber(summary.byType.lacrima || 0) },
     ],
-    lines: [
-      'Base inventaire active : chaque personnage possède son inventaire séparé.',
-      'La prochaine étape ajoutera les catégories : consommables, équipements, lacrimas, rares et objets de mission.',
-      'Les achats de la boutique seront liés directement au profil actif.',
-    ],
-    footer: 'Menu /profil · Inventaire du personnage actif',
+    lines,
+    footer: 'Menu /profil · Inventaire réel du personnage actif',
   });
 
   return interaction.update({

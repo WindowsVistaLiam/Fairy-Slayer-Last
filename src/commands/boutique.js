@@ -4,7 +4,7 @@ const { openShopHub } = require('../features/shop/shopHub');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('boutique')
-    .setDescription('Ouvre la boutique du personnage actif.'),
+    .setDescription('Ouvre la boutique Fairy Slayer.'),
 
   async execute(interaction) {
     return openShopHub(interaction);
