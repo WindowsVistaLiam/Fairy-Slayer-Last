@@ -5,6 +5,8 @@ const shopHub = require('../features/shop/shopHub');
 const rankingHub = require('../features/ranking/rankingHub');
 const adminHub = require('../features/admin/adminHub');
 const missionHub = require('../features/missions/missionHub');
+const relationHub = require('../features/relations/relationHub');
+const rumorHub = require('../features/rumors/rumorHub');
 
 const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -100,9 +102,15 @@ async function handleComponentInteraction(interaction) {
   if (id === 'profile:missions') return missionHub.showMissionBoard(interaction);
   if (id.startsWith('mission:')) return missionHub.handleMissionComponent(interaction);
 
+  // Relations
+  if (id === 'profile:relations') return relationHub.showRelations(interaction);
+  if (id.startsWith('relation:')) return relationHub.handleRelationComponent(interaction);
+
+  // Rumeurs
+  if (id === 'profile:rumors') return rumorHub.showRumors(interaction);
+  if (id.startsWith('rumor:')) return rumorHub.handleRumorComponent(interaction);
+
   // Autres pages profil
-  if (id === 'profile:relations') return profileHub.showRelations(interaction);
-  if (id === 'profile:rumors') return profileHub.showRumors(interaction);
   if (id === 'profile:reputation') return profileHub.showReputation(interaction);
 
   // Boutique
@@ -124,6 +132,12 @@ async function handleModalInteraction(interaction) {
   if (id === 'profile:create:modal') return profileHub.handleCreateModal(interaction);
   if (id === 'profile:edit:modal') return profileHub.handleEditModal(interaction);
   if (id === 'profile:image:modal') return profileHub.handleImageModal(interaction);
+
+  // Relations
+  if (id.startsWith('relation:')) return relationHub.handleRelationModal(interaction);
+
+  // Rumeurs
+  if (id.startsWith('rumor:')) return rumorHub.handleRumorModal(interaction);
 
   // Admin
   if (id.startsWith('admin:')) return adminHub.handleAdminModal(interaction);
