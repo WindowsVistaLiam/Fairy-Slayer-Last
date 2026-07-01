@@ -170,27 +170,58 @@ function isValidHttpUrl(value) {
   }
 }
 
+async function acknowledgeProfileInteraction(interaction) {
+  if (interaction.deferred || interaction.replied) {
+    return true;
+  }
+
+  try {
+    if (interaction.isButton?.() || interaction.isStringSelectMenu?.()) {
+      await interaction.deferUpdate();
+      return true;
+    }
+
+    await interaction.deferReply();
+    return true;
+  } catch (error) {
+    if (error?.code === 10062) {
+      console.warn('⚠️ Interaction /profil expirée avant defer.');
+      return false;
+    }
+
+    throw error;
+  }
+}
+
 async function replyOrUpdate(interaction, payload) {
-  if (interaction.isButton() || interaction.isStringSelectMenu()) {
-    const { ephemeral, ...updatePayload } = payload;
+  try {
+    if (interaction.deferred || interaction.replied) {
+      return await interaction.editReply(payload);
+    }
 
-    await interaction.update(updatePayload);
+    if (interaction.isButton?.() || interaction.isStringSelectMenu?.()) {
+      return await interaction.update(payload);
+    }
 
-    return interaction.message;
+    return await interaction.reply({
+      ...payload,
+      fetchReply: true,
+    });
+  } catch (error) {
+    if (error?.code === 10062) {
+      console.warn('⚠️ Interaction /profil expirée avant réponse Discord.');
+      return null;
+    }
+
+    throw error;
   }
-
-  if (interaction.replied || interaction.deferred) {
-    await interaction.editReply(payload);
-
-    return interaction.fetchReply().catch(() => null);
-  }
-
-  await interaction.reply(payload);
-
-  return interaction.fetchReply().catch(() => null);
 }
 
 async function openProfileHub(interaction) {
+  const acknowledged = await acknowledgeProfileInteraction(interaction);
+    if (!acknowledged) {
+      return null;
+      }
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
   if (!profile) {
