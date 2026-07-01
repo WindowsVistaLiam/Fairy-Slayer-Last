@@ -4,6 +4,7 @@ const profileHub = require('../features/profile/profileHub');
 const shopHub = require('../features/shop/shopHub');
 const rankingHub = require('../features/ranking/rankingHub');
 const adminHub = require('../features/admin/adminHub');
+const missionHub = require('../features/missions/missionHub');
 
 const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -95,8 +96,11 @@ async function handleComponentInteraction(interaction) {
   if (id.startsWith('profile:inventory:equip:')) return profileHub.equipInventoryItemAction(interaction);
   if (id.startsWith('profile:inventory:unequip:')) return profileHub.unequipInventoryItemAction(interaction);
 
+  // Missions
+  if (id === 'profile:missions') return missionHub.showMissionBoard(interaction);
+  if (id.startsWith('mission:')) return missionHub.handleMissionComponent(interaction);
+
   // Autres pages profil
-  if (id === 'profile:missions') return profileHub.showMissions(interaction);
   if (id === 'profile:relations') return profileHub.showRelations(interaction);
   if (id === 'profile:rumors') return profileHub.showRumors(interaction);
   if (id === 'profile:reputation') return profileHub.showReputation(interaction);
