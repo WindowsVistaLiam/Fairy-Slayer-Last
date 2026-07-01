@@ -26,7 +26,6 @@ const {
 
 const {
   getAllItems,
-  getItemById,
   getRarityLabel,
   getTypeLabel,
 } = require('../../data/items');
@@ -56,6 +55,12 @@ function getAdminRows() {
         .setLabel('Modifier profil')
         .setEmoji('⚙️')
         .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('admin:jewels_profile')
+        .setLabel('Joyaux')
+        .setEmoji('💎')
+        .setStyle(ButtonStyle.Success),
 
       new ButtonBuilder()
         .setCustomId('admin:xp_profile')
@@ -92,17 +97,45 @@ function getAdminRows() {
   ];
 }
 
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function getProfileNameRegex(characterName) {
+  return {
+    $regex: `^${escapeRegex(characterName)}$`,
+    $options: 'i',
+  };
+}
+
+async function findProfileByName(interaction, characterName) {
+  return Profile.findOne({
+    guildId: interaction.guildId,
+    characterName: getProfileNameRegex(characterName),
+  });
+}
+
 function normalizeItemSearch(value) {
   return String(value || '')
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
+    .replace(/[_-]/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 function findItemByNameOrId(input) {
   const query = normalizeItemSearch(input);
   const items = getAllItems();
+
+  if (!query) {
+    return {
+      item: null,
+      matches: [],
+      ambiguous: false,
+    };
+  }
 
   const exactMatch = items.find((item) => (
     normalizeItemSearch(item.itemId) === query
@@ -148,15 +181,19 @@ function findItemByNameOrId(input) {
 function formatItemSearchMatches(matches) {
   return matches
     .slice(0, 8)
-    .map((item) => `• ${item.name} \`${item.itemId}\``)
+    .map((item) => `• ${item.name} — \`${item.itemId}\``)
     .join('\n');
 }
 
-async function findProfileByName(interaction, characterName) {
-  return Profile.findOne({
-    guildId: interaction.guildId,
-    characterName: getProfileNameRegex(characterName),
-  });
+function parseSignedInteger(value, fallback = 0) {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  return Number.isNaN(parsed) ? fallback : parsed;
+}
+
+function parsePositiveInteger(value, fallback = 1, max = 99) {
+  const parsed = Number.parseInt(String(value || '').trim(), 10);
+  if (Number.isNaN(parsed)) return fallback;
+  return Math.max(1, Math.min(max, parsed));
 }
 
 async function openAdminHub(interaction) {
@@ -176,9 +213,9 @@ async function openAdminHub(interaction) {
     title: 'Gestion Fairy Slayer',
     subtitle: 'Menu réservé au staff du serveur.',
     lines: [
-      'Modifier les profils : rang, puissance, Jewels et réputation.',
+      'Modifier les profils : rang, puissance, Joyaux et réputation.',
       'Gérer la progression : ajouter ou retirer de l’XP.',
-      'Gérer les inventaires : donner ou retirer des objets.',
+      'Gérer les inventaires : donner ou retirer des objets par nom ou par ID.',
       'Voir le catalogue d’objets disponible dans la boutique.',
     ],
     footer: 'Utilise les boutons sous le Canvas pour administrer Fairy Slayer.',
@@ -193,13 +230,15 @@ async function openAdminHub(interaction) {
 }
 
 async function showRecentProfiles(interaction) {
-  const profiles = await Profile.find({ guildId: interaction.guildId })
+  const profiles = await Profile.find({
+    guildId: interaction.guildId,
+  })
     .sort({ updatedAt: -1 })
     .limit(10);
 
   const lines = profiles.length
     ? profiles.map((profile) => (
-      `${profile.characterName} - joueur ${profile.userId} - Rang ${profile.mageRank} - Puissance ${formatNumber(profile.powerLevel)} - Rep ${profile.reputation}`
+      `${profile.characterName} - joueur ${profile.userId} - Rang ${profile.mageRank} - Puissance ${formatNumber(profile.powerLevel)} - Joyaux ${formatNumber(profile.jewels)} - Rep ${profile.reputation}`
     ))
     : ['Aucun profil trouvé.'];
 
@@ -226,7 +265,7 @@ async function showItemCatalog(interaction) {
   const items = getAllItems();
 
   const lines = items.map((item) => (
-    `${item.itemId} - ${item.name} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - achat ${formatNumber(item.basePrice)} - revente ${formatNumber(item.sellPrice)}`
+    `${item.name} - ID ${item.itemId} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - achat ${formatNumber(item.basePrice)} - revente ${formatNumber(item.sellPrice)}`
   ));
 
   const fileName = 'fairy-slayer-admin-objets.png';
@@ -236,7 +275,7 @@ async function showItemCatalog(interaction) {
     variant: 'admin',
     section: 'Catalogue objets',
     title: `${items.length} objet(s) disponible(s)`,
-    subtitle: 'Utilise les itemId pour donner ou retirer des objets.',
+    subtitle: 'Pour donner ou retirer un objet, le nom suffit. L’ID reste accepté.',
     lines,
     footer: 'Menu /admin - Catalogue objets',
   });
@@ -287,7 +326,7 @@ async function showEditProfileModal(interaction) {
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('jewelsDelta')
-        .setLabel('Jewels à ajouter/retirer')
+        .setLabel('Joyaux à ajouter ou retirer')
         .setPlaceholder('Exemple : 500 ou -200. Laisser vide pour 0')
         .setStyle(TextInputStyle.Short)
         .setRequired(false)
@@ -297,7 +336,7 @@ async function showEditProfileModal(interaction) {
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
         .setCustomId('reputationDelta')
-        .setLabel('Réputation à ajouter/retirer')
+        .setLabel('Réputation à ajouter ou retirer')
         .setPlaceholder('Exemple : 5 ou -3. Laisser vide pour 0')
         .setStyle(TextInputStyle.Short)
         .setRequired(false)
@@ -332,19 +371,19 @@ async function handleEditProfileModal(interaction) {
   }
 
   if (powerLevelInput) {
-    const power = Math.max(0, Math.min(999999, Number.parseInt(powerLevelInput, 10) || 0));
+    const power = Math.max(0, Math.min(999999, parseSignedInteger(powerLevelInput, 0)));
     profile.powerLevel = power;
     changes.push(`Puissance : ${formatNumber(power)}`);
   }
 
-  const jewelsDelta = Number.parseInt(jewelsDeltaInput || '0', 10) || 0;
+  const jewelsDelta = parseSignedInteger(jewelsDeltaInput, 0);
 
   if (jewelsDelta !== 0) {
     profile.jewels = Math.max(0, Number(profile.jewels || 0) + jewelsDelta);
-    changes.push(`Jewels : ${formatNumber(profile.jewels)} (${jewelsDelta > 0 ? '+' : ''}${formatNumber(jewelsDelta)})`);
+    changes.push(`Joyaux : ${formatNumber(profile.jewels)} (${jewelsDelta > 0 ? '+' : ''}${formatNumber(jewelsDelta)})`);
   }
 
-  const reputationDelta = Number.parseInt(reputationDeltaInput || '0', 10) || 0;
+  const reputationDelta = parseSignedInteger(reputationDeltaInput, 0);
 
   if (reputationDelta !== 0) {
     profile.reputation = clampReputation(Number(profile.reputation || 0) + reputationDelta);
@@ -371,6 +410,98 @@ async function handleEditProfileModal(interaction) {
     subtitle: `Joueur Discord : ${profile.userId}`,
     lines: changes.length ? changes : ['Aucune modification appliquée.'],
     footer: 'Menu /admin - Modification staff enregistrée',
+  });
+
+  return interaction.reply({
+    embeds: [createCanvasEmbed(fileName)],
+    files: [attachment],
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+async function showJewelsModal(interaction) {
+  const modal = new ModalBuilder()
+    .setCustomId('admin:jewels_profile:modal')
+    .setTitle('Ajouter ou retirer des Joyaux');
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('characterName')
+        .setLabel('Nom exact du personnage')
+        .setPlaceholder('Exemple : Kael Dragneel')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(80),
+    ),
+
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('jewelsDelta')
+        .setLabel('Joyaux à ajouter ou retirer')
+        .setPlaceholder('Exemple : 500 ou -200')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(10),
+    ),
+
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('reason')
+        .setLabel('Raison')
+        .setPlaceholder('Exemple : récompense de mission')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(120),
+    ),
+  );
+
+  return interaction.showModal(modal);
+}
+
+async function handleJewelsModal(interaction) {
+  const characterName = interaction.fields.getTextInputValue('characterName').trim();
+  const jewelsDeltaInput = interaction.fields.getTextInputValue('jewelsDelta')?.trim();
+  const reason = interaction.fields.getTextInputValue('reason')?.trim() || 'Modification staff via /admin';
+
+  const profile = await findProfileByName(interaction, characterName);
+
+  if (!profile) {
+    return interaction.reply({
+      content: `Aucun profil trouvé avec le nom exact **${truncateText(characterName, 80)}**.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const jewelsDelta = parseSignedInteger(jewelsDeltaInput, 0);
+
+  if (jewelsDelta === 0) {
+    return interaction.reply({
+      content: 'La valeur de Joyaux doit être différente de 0. Exemple : `500` ou `-200`.',
+      flags: MessageFlags.Ephemeral,
+    });
+  }
+
+  const before = Number(profile.jewels || 0);
+  profile.jewels = Math.max(0, before + jewelsDelta);
+
+  await profile.save();
+
+  const fileName = 'fairy-slayer-admin-joyaux.png';
+
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'admin',
+    section: 'Joyaux modifiés',
+    title: profile.characterName,
+    subtitle: reason,
+    lines: [
+      `Modification : ${jewelsDelta > 0 ? '+' : ''}${formatNumber(jewelsDelta)} Joyaux`,
+      `Ancien solde : ${formatNumber(before)} Joyaux`,
+      `Nouveau solde : ${formatNumber(profile.jewels)} Joyaux`,
+      `Modifié par : ${interaction.user.tag}`,
+    ],
+    footer: 'Menu /admin - Modification des Joyaux enregistrée',
   });
 
   return interaction.reply({
@@ -413,7 +544,7 @@ async function showXpModal(interaction) {
 async function handleXpModal(interaction) {
   const characterName = interaction.fields.getTextInputValue('characterName').trim();
   const xpDeltaInput = interaction.fields.getTextInputValue('xpDelta')?.trim();
-  const xpDelta = Number.parseInt(xpDeltaInput || '0', 10) || 0;
+  const xpDelta = parseSignedInteger(xpDeltaInput, 0);
 
   const profile = await findProfileByName(interaction, characterName);
 
@@ -424,7 +555,7 @@ async function handleXpModal(interaction) {
     });
   }
 
-  const oldLevel = profile.level;
+  const oldLevel = Number(profile.level || 1);
 
   if (xpDelta >= 0) {
     applyXp(profile, xpDelta);
@@ -438,7 +569,7 @@ async function handleXpModal(interaction) {
     `XP modifiée : ${xpDelta > 0 ? '+' : ''}${formatNumber(xpDelta)}`,
     `Niveau : ${oldLevel} -> ${profile.level}`,
     `XP actuelle : ${formatNumber(profile.xp)}`,
-    `Jewels actuels : ${formatNumber(profile.jewels)}`,
+    `Joyaux actuels : ${formatNumber(profile.jewels)}`,
   ];
 
   const fileName = 'fairy-slayer-admin-xp.png';
@@ -478,12 +609,12 @@ async function showGiveItemModal(interaction) {
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
-        .setCustomId('itemId')
-        .setLabel('ID de l’objet')
-        .setPlaceholder('Exemple : potion_soin_mineure')
+        .setCustomId('itemInput')
+        .setLabel('Nom ou ID de l’objet')
+        .setPlaceholder('Exemple : Potion de soin mineure')
         .setStyle(TextInputStyle.Short)
         .setRequired(true)
-        .setMaxLength(80),
+        .setMaxLength(120),
     ),
 
     new ActionRowBuilder().addComponents(
@@ -502,9 +633,9 @@ async function showGiveItemModal(interaction) {
 
 async function handleGiveItemModal(interaction) {
   const characterName = interaction.fields.getTextInputValue('characterName').trim();
-  const itemInput = interaction.fields.getTextInputValue('itemId').trim();
+  const itemInput = interaction.fields.getTextInputValue('itemInput').trim();
   const quantityInput = interaction.fields.getTextInputValue('quantity')?.trim();
-  const quantity = Math.max(1, Math.min(99, Number.parseInt(quantityInput || '1', 10) || 1));
+  const quantity = parsePositiveInteger(quantityInput, 1, 99);
 
   const profile = await findProfileByName(interaction, characterName);
 
@@ -517,21 +648,21 @@ async function handleGiveItemModal(interaction) {
 
   const itemSearch = findItemByNameOrId(itemInput);
 
-if (itemSearch.ambiguous) {
-  return interaction.reply({
-    content: `Plusieurs objets correspondent à **${itemInput}** :\n${formatItemSearchMatches(itemSearch.matches)}\n\nSois plus précis dans le nom.`,
-    flags: MessageFlags.Ephemeral,
-  });
-}
+  if (itemSearch.ambiguous) {
+    return interaction.reply({
+      content: `Plusieurs objets correspondent à **${itemInput}** :\n${formatItemSearchMatches(itemSearch.matches)}\n\nSois plus précis dans le nom.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
-const item = itemSearch.item;
+  const item = itemSearch.item;
 
-if (!item) {
-  return interaction.reply({
-    content: `Objet introuvable : **${itemInput}**. Utilise le bouton **Objets** dans /admin pour voir les noms disponibles.`,
-    flags: MessageFlags.Ephemeral,
-  });
-}
+  if (!item) {
+    return interaction.reply({
+      content: `Objet introuvable : **${itemInput}**. Utilise le bouton **Objets** dans /admin pour voir les noms disponibles.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   await addItemToInventory(profile._id, item.itemId, quantity);
 
@@ -581,12 +712,12 @@ async function showRemoveItemModal(interaction) {
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
-          .setCustomId('itemId')
-          .setLabel('Nom ou ID de l’objet')
-          .setPlaceholder('Exemple : Potion de soin mineure')
-          .setStyle(TextInputStyle.Short)
-          .setRequired(true)
-          .setMaxLength(120),
+        .setCustomId('itemInput')
+        .setLabel('Nom ou ID de l’objet')
+        .setPlaceholder('Exemple : Potion de soin mineure')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(120),
     ),
 
     new ActionRowBuilder().addComponents(
@@ -605,9 +736,9 @@ async function showRemoveItemModal(interaction) {
 
 async function handleRemoveItemModal(interaction) {
   const characterName = interaction.fields.getTextInputValue('characterName').trim();
-  const itemInput = interaction.fields.getTextInputValue('itemId').trim();
+  const itemInput = interaction.fields.getTextInputValue('itemInput').trim();
   const quantityInput = interaction.fields.getTextInputValue('quantity')?.trim();
-  const quantity = Math.max(1, Math.min(99, Number.parseInt(quantityInput || '1', 10) || 1));
+  const quantity = parsePositiveInteger(quantityInput, 1, 99);
 
   const profile = await findProfileByName(interaction, characterName);
 
@@ -620,21 +751,21 @@ async function handleRemoveItemModal(interaction) {
 
   const itemSearch = findItemByNameOrId(itemInput);
 
-if (itemSearch.ambiguous) {
-  return interaction.reply({
-    content: `Plusieurs objets correspondent à **${itemInput}** :\n${formatItemSearchMatches(itemSearch.matches)}\n\nSois plus précis dans le nom.`,
-    flags: MessageFlags.Ephemeral,
-  });
-}
+  if (itemSearch.ambiguous) {
+    return interaction.reply({
+      content: `Plusieurs objets correspondent à **${itemInput}** :\n${formatItemSearchMatches(itemSearch.matches)}\n\nSois plus précis dans le nom.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
-const item = itemSearch.item;
+  const item = itemSearch.item;
 
-if (!item) {
-  return interaction.reply({
-    content: `Objet introuvable : **${itemInput}**. Utilise le bouton **Objets** dans /admin pour voir les noms disponibles.`,
-    flags: MessageFlags.Ephemeral,
-  });
-}
+  if (!item) {
+    return interaction.reply({
+      content: `Objet introuvable : **${itemInput}**. Utilise le bouton **Objets** dans /admin pour voir les noms disponibles.`,
+      flags: MessageFlags.Ephemeral,
+    });
+  }
 
   const removed = await removeItemFromInventory(profile._id, item.itemId, quantity);
 
@@ -708,6 +839,7 @@ async function handleAdminComponent(interaction) {
 
   if (interaction.customId === 'admin:list_profiles') return showRecentProfiles(interaction);
   if (interaction.customId === 'admin:edit_profile') return showEditProfileModal(interaction);
+  if (interaction.customId === 'admin:jewels_profile') return showJewelsModal(interaction);
   if (interaction.customId === 'admin:xp_profile') return showXpModal(interaction);
   if (interaction.customId === 'admin:item_catalog') return showItemCatalog(interaction);
   if (interaction.customId === 'admin:give_item') return showGiveItemModal(interaction);
@@ -729,6 +861,7 @@ async function handleAdminModal(interaction) {
   }
 
   if (interaction.customId === 'admin:edit_profile:modal') return handleEditProfileModal(interaction);
+  if (interaction.customId === 'admin:jewels_profile:modal') return handleJewelsModal(interaction);
   if (interaction.customId === 'admin:xp_profile:modal') return handleXpModal(interaction);
   if (interaction.customId === 'admin:give_item:modal') return handleGiveItemModal(interaction);
   if (interaction.customId === 'admin:remove_item:modal') return handleRemoveItemModal(interaction);
