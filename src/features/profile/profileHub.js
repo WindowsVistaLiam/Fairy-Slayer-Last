@@ -540,9 +540,23 @@ async function handleImageModal(interaction) {
     });
   }
 
-  const normalizedAvatarUrl = avatarUrl
-  ? avatarUrl.replace('https://media.discordapp.net/', 'https://cdn.discordapp.com/')
-  : null;
+  let normalizedAvatarUrl = avatarUrl;
+
+if (avatarUrl) {
+  try {
+    const parsed = new URL(avatarUrl);
+
+    if (parsed.hostname === 'media.discordapp.net') {
+      parsed.hostname = 'cdn.discordapp.com';
+    }
+
+    normalizedAvatarUrl = parsed.toString();
+  } catch (_) {
+    normalizedAvatarUrl = avatarUrl;
+  }
+}
+
+profile.avatarUrl = normalizedAvatarUrl;
 
   profile.avatarUrl = normalizedAvatarUrl;
   await profile.save();
