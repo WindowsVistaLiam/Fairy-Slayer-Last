@@ -92,11 +92,64 @@ function getAdminRows() {
   ];
 }
 
-function getProfileNameRegex(characterName) {
+function normalizeItemSearch(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+}
+
+function findItemByNameOrId(input) {
+  const query = normalizeItemSearch(input);
+  const items = getAllItems();
+
+  const exactMatch = items.find((item) => (
+    normalizeItemSearch(item.itemId) === query
+    || normalizeItemSearch(item.name) === query
+  ));
+
+  if (exactMatch) {
+    return {
+      item: exactMatch,
+      matches: [exactMatch],
+      ambiguous: false,
+    };
+  }
+
+  const partialMatches = items.filter((item) => (
+    normalizeItemSearch(item.itemId).includes(query)
+    || normalizeItemSearch(item.name).includes(query)
+  ));
+
+  if (partialMatches.length === 1) {
+    return {
+      item: partialMatches[0],
+      matches: partialMatches,
+      ambiguous: false,
+    };
+  }
+
+  if (partialMatches.length > 1) {
+    return {
+      item: null,
+      matches: partialMatches,
+      ambiguous: true,
+    };
+  }
+
   return {
-    $regex: `^${characterName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`,
-    $options: 'i',
+    item: null,
+    matches: [],
+    ambiguous: false,
   };
+}
+
+function formatItemSearchMatches(matches) {
+  return matches
+    .slice(0, 8)
+    .map((item) => `• ${item.name} \`${item.itemId}\``)
+    .join('\n');
 }
 
 async function findProfileByName(interaction, characterName) {
@@ -449,7 +502,7 @@ async function showGiveItemModal(interaction) {
 
 async function handleGiveItemModal(interaction) {
   const characterName = interaction.fields.getTextInputValue('characterName').trim();
-  const itemId = interaction.fields.getTextInputValue('itemId').trim();
+  const itemInput = interaction.fields.getTextInputValue('itemId').trim();
   const quantityInput = interaction.fields.getTextInputValue('quantity')?.trim();
   const quantity = Math.max(1, Math.min(99, Number.parseInt(quantityInput || '1', 10) || 1));
 
@@ -462,14 +515,23 @@ async function handleGiveItemModal(interaction) {
     });
   }
 
-  const item = getItemById(itemId);
+  const itemSearch = findItemByNameOrId(itemInput);
 
-  if (!item) {
-    return interaction.reply({
-      content: `Objet introuvable : \`${itemId}\`. Utilise le bouton **Objets** dans /admin pour voir les IDs.`,
-      flags: MessageFlags.Ephemeral,
-    });
-  }
+if (itemSearch.ambiguous) {
+  return interaction.reply({
+    content: `Plusieurs objets correspondent à **${itemInput}** :\n${formatItemSearchMatches(itemSearch.matches)}\n\nSois plus précis dans le nom.`,
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+const item = itemSearch.item;
+
+if (!item) {
+  return interaction.reply({
+    content: `Objet introuvable : **${itemInput}**. Utilise le bouton **Objets** dans /admin pour voir les noms disponibles.`,
+    flags: MessageFlags.Ephemeral,
+  });
+}
 
   await addItemToInventory(profile._id, item.itemId, quantity);
 
@@ -519,12 +581,12 @@ async function showRemoveItemModal(interaction) {
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
-        .setCustomId('itemId')
-        .setLabel('ID de l’objet')
-        .setPlaceholder('Exemple : potion_soin_mineure')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true)
-        .setMaxLength(80),
+          .setCustomId('itemId')
+          .setLabel('Nom ou ID de l’objet')
+          .setPlaceholder('Exemple : Potion de soin mineure')
+          .setStyle(TextInputStyle.Short)
+          .setRequired(true)
+          .setMaxLength(120),
     ),
 
     new ActionRowBuilder().addComponents(
@@ -543,7 +605,7 @@ async function showRemoveItemModal(interaction) {
 
 async function handleRemoveItemModal(interaction) {
   const characterName = interaction.fields.getTextInputValue('characterName').trim();
-  const itemId = interaction.fields.getTextInputValue('itemId').trim();
+  const itemInput = interaction.fields.getTextInputValue('itemId').trim();
   const quantityInput = interaction.fields.getTextInputValue('quantity')?.trim();
   const quantity = Math.max(1, Math.min(99, Number.parseInt(quantityInput || '1', 10) || 1));
 
@@ -556,14 +618,23 @@ async function handleRemoveItemModal(interaction) {
     });
   }
 
-  const item = getItemById(itemId);
+  const itemSearch = findItemByNameOrId(itemInput);
 
-  if (!item) {
-    return interaction.reply({
-      content: `Objet introuvable : \`${itemId}\`. Utilise le bouton **Objets** dans /admin pour voir les IDs.`,
-      flags: MessageFlags.Ephemeral,
-    });
-  }
+if (itemSearch.ambiguous) {
+  return interaction.reply({
+    content: `Plusieurs objets correspondent à **${itemInput}** :\n${formatItemSearchMatches(itemSearch.matches)}\n\nSois plus précis dans le nom.`,
+    flags: MessageFlags.Ephemeral,
+  });
+}
+
+const item = itemSearch.item;
+
+if (!item) {
+  return interaction.reply({
+    content: `Objet introuvable : **${itemInput}**. Utilise le bouton **Objets** dans /admin pour voir les noms disponibles.`,
+    flags: MessageFlags.Ephemeral,
+  });
+}
 
   const removed = await removeItemFromInventory(profile._id, item.itemId, quantity);
 
