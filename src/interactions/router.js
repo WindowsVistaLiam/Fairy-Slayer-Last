@@ -7,6 +7,7 @@ const adminHub = require('../features/admin/adminHub');
 const missionHub = require('../features/missions/missionHub');
 const relationHub = require('../features/relations/relationHub');
 const rumorHub = require('../features/rumors/rumorHub');
+const gachaHub = require('../features/gacha/gachaHub');
 
 const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -122,6 +123,9 @@ async function handleComponentInteraction(interaction) {
 
   // Admin
   if (id.startsWith('admin:')) return adminHub.handleAdminComponent(interaction);
+
+  // Gacha et collection de cartes
+  if (id.startsWith('gacha:')) return gachaHub.handleGachaComponent(interaction);
 
   return safeEphemeralReply(interaction, `Interaction inconnue : \`${id}\``);
 }

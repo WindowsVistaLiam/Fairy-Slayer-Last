@@ -1,7 +1,7 @@
 {
   "name": "fairy-slayer",
   "version": "1.0.0",
-  "description": "Bot Discord RP Fairy Slayer - profils multiples, boutique, classements, admin, XP et Canvas.",
+  "description": "Bot Discord RP Fairy Slayer - profils, gacha Fairy Tail, boutique, missions, classements, admin, XP et Canvas.",
   "main": "src/index.js",
   "type": "commonjs",
   "scripts": {

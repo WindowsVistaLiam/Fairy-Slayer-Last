@@ -2,12 +2,15 @@
 
 Fairy Slayer est un bot Discord RP inspiré de Fairy Tail, construit avec Node.js, discord.js v14, MongoDB et Canvas.
 
-Il expose quatre commandes principales :
+Commandes principales :
 
 - `/profil` : personnage actif, profils multiples, inventaire, équipement, missions, relations, rumeurs et réputation.
 - `/boutique` : achat et vente d’objets, avec prix influencés par la réputation et les rumeurs.
 - `/classement` : classements par personnage.
 - `/admin` : gestion staff des profils, de la progression, des inventaires et de la configuration serveur.
+- `/gacha` : portail d’invocation Fairy Tail, tirages, pity et fragments.
+- `/collection` : collection personnelle ou collection d’un autre joueur.
+- `/cartes` : catalogue filtrable des cartes disponibles.
 
 ## Fonctionnalités
 
@@ -28,6 +31,22 @@ Il expose quatre commandes principales :
 - Interfaces `/profil` et `/admin` en grand Canvas.
 - Panneaux Canvas adaptatifs aux contenus longs.
 - Inspection détaillée d’un profil depuis `/admin`, sans modification des données.
+- Gacha Fairy Tail persistant avec 34 cartes et cinq raretés.
+- Tirage gratuit toutes les deux heures, tirages en Joyaux et tirage en fragments.
+- Pity garanti aux 10e, 50e et 100e tirages.
+- Doublons automatiquement convertis en fragments réutilisables.
+- Collection, catalogue, recherche, pagination et fiches de cartes en grand Canvas.
+
+## Gacha Fairy Tail
+
+Le gacha appartient au compte Discord sur le serveur. Les Joyaux dépensés proviennent du profil RP actif, tandis que les cartes, fragments et pity sont partagés entre tous les profils du joueur.
+
+- Tirage gratuit : une carte toutes les deux heures.
+- Tirage simple : 250 Joyaux.
+- Tirage multiple : 10 cartes pour 2 250 Joyaux.
+- Tirage fragments : une carte pour 100 fragments.
+- Probabilités : 60 % Commune, 27 % Rare, 9 % Épique, 3,5 % Légendaire et 0,5 % Mythique.
+- Garanties : Épique au 10e tirage sans Épique, Légendaire au 50e sans Légendaire et Mythique au 100e sans Mythique.
 
 ## Configuration depuis Discord
 
@@ -105,7 +124,7 @@ Les fonctionnalités sont séparées afin de garder des modules lisibles :
 Structure importante :
 
 ```txt
-src/commands/        Les 4 commandes visibles
+src/commands/        Les commandes slash visibles
 src/features/        Les vrais systèmes du bot
 src/models/          Schémas MongoDB/Mongoose
 src/canvas/          Génération des images Canvas
@@ -117,4 +136,5 @@ src/utils/           Fonctions partagées
 
 - Tester l’équilibrage des récompenses et des prix avec les joueurs.
 - Ajouter de nouveaux arcs narratifs et objets au fil des événements RP.
+- Enrichir les bannières gacha avec de nouvelles séries de cartes et événements limités.
 - Envisager une migration MongoDB du champ technique historique `jewels` vers `joyaux` lors d’une future maintenance dédiée.

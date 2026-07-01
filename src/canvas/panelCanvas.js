@@ -25,6 +25,7 @@ const THEME = {
   shop: '#9b8cff',
   ranking: '#ffdf91',
   admin: '#ff6b6b',
+  gacha: '#e66cff',
   neutral: '#9b8cff',
 };
 

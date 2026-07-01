@@ -11,6 +11,8 @@ const {
 
 const Profile = require('../../models/Profile');
 const ReputationLog = require('../../models/ReputationLog');
+const GachaAccount = require('../../models/GachaAccount');
+const GachaCard = require('../../models/GachaCard');
 
 const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { normalizeMageRank } = require('../../utils/ranks');
@@ -40,6 +42,7 @@ const {
   getRarityLabel,
   getTypeLabel,
 } = require('../../data/items');
+const { FAIRY_TAIL_CARDS } = require('../../data/fairyTailCards');
 
 function createCanvasEmbed(fileName) {
   return new EmbedBuilder()
@@ -435,7 +438,11 @@ async function handleInspectProfileModal(interaction) {
       flags: MessageFlags.Ephemeral,
     });
   }
-  const items = await getInventoryDetails(profile._id);
+  const [items, gachaAccount, gachaCards] = await Promise.all([
+    getInventoryDetails(profile._id),
+    GachaAccount.findOne({ userId: profile.userId, guildId: interaction.guildId }).lean(),
+    GachaCard.countDocuments({ userId: profile.userId, guildId: interaction.guildId }),
+  ]);
   const equipped = items.filter((item) => item.equipped);
   const equipmentBonus = equipped.reduce((total, item) => total + Number(item.powerBonus || 0), 0);
   const lines = [
@@ -444,6 +451,7 @@ async function handleInspectProfileModal(interaction) {
     `Puissance : ${formatNumber(profile.powerLevel)} + ${formatNumber(equipmentBonus)} équipement`,
     `Joyaux : ${formatNumber(profile.jewels)} — Réputation : ${profile.reputation}`,
     `Inventaire : ${items.reduce((total, item) => total + item.quantity, 0)} objet(s) — ${equipped.length}/4 équipé(s)`,
+    `Gacha : ${gachaCards}/${FAIRY_TAIL_CARDS.length} cartes — ${formatNumber(gachaAccount?.fragments || 0)} fragments — ${formatNumber(gachaAccount?.totalPulls || 0)} tirages`,
     ...equipped.map((item) => `${item.equipSlotLabel} : ${item.name} (+${formatNumber(item.powerBonus || 0)})`),
   ];
   const attachment = await createPanelCanvas({

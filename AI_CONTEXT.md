@@ -6,10 +6,10 @@ Fairy Slayer est un bot Discord RP Fairy Tail.
 
 - Stack : Node.js 22+, discord.js v14, MongoDB Atlas, Mongoose, `@napi-rs/canvas` et Railway.
 - Repo : https://github.com/WindowsVistaLiam/Fairy-Slayer-Last
-- Commandes principales : `/profil`, `/boutique`, `/classement`, `/admin`.
+- Commandes principales : `/profil`, `/boutique`, `/classement`, `/admin`, `/gacha`, `/collection`, `/cartes`.
 - Architecture : commandes fines dans `src/commands`, logique dans `src/features`, modèles Mongoose dans `src/models`, événements dans `src/events`, Canvas dans `src/canvas`.
 
-Le `README.md` peut servir de référence fonctionnelle et de source d’idées. Il contient toutefois encore une ancienne roadmap V1 à V4 : le code et ce fichier sont les sources de vérité pour l’état actuel.
+Le `README.md` sert de référence fonctionnelle et de source d’idées. Le code et ce fichier restent les sources de vérité pour l’état actuel.
 
 ## Règles de développement
 
@@ -21,6 +21,13 @@ Le `README.md` peut servir de référence fonctionnelle et de source d’idées.
 - Exécuter `node --check` sur chaque fichier JavaScript modifié, puis `npm run check` et `git diff --check`.
 - Toujours présenter un résumé et attendre l’accord explicite de l’utilisateur avant `git add`, commit ou push.
 - La monnaie est affichée partout sous le nom Joyaux. Le champ MongoDB historique `jewels` est conservé volontairement pour ne pas casser les soldes existants.
+
+## Interdits
+
+- Ne jamais commit `.env`.
+- Ne jamais afficher le token Discord.
+- Ne jamais lancer deux instances du bot avec le même token.
+- Ne jamais supprimer les champs MongoDB existants sans migration.
 
 ## Fonctionnalités terminées
 
@@ -41,6 +48,11 @@ Le `README.md` peut servir de référence fonctionnelle et de source d’idées.
 - Page `/profil` → Équipement dédiée : quatre slots, bonus et puissance totale.
 - Panneaux grand Canvas adaptatifs : hauteur dynamique, douze lignes visibles et résumé du surplus.
 - Inspection détaillée d’un profil depuis `/admin`, en lecture seule.
+- Gacha Fairy Tail avec 34 cartes, cinq raretés, tirages simple/multiple/gratuit et paiement en fragments.
+- Pity persistant : Épique à 10, Légendaire à 50 et Mythique à 100.
+- Doublons convertis automatiquement en fragments selon la rareté.
+- Collection et catalogue paginés avec recherche et fiches détaillées en grand Canvas.
+- Cartes, fragments et pity liés au compte Discord et au serveur ; les tirages en Joyaux débitent le profil actif.
 
 ## Configuration serveur
 
@@ -58,25 +70,23 @@ La configuration complète est stockée dans `GuildConfig` et administrée depui
 
 ## État du travail en cours
 
-La configuration serveur et l’ensemble des fonctionnalités de la roadmap ci-dessous sont présents dans le worktree mais ne sont pas encore commités. `AI_CONTEXT.md` reste non suivi tant qu’il n’a pas été ajouté à Git.
+Le système gacha Fairy Tail est présent dans le worktree mais n’est pas encore commité.
 
 Fichiers de code concernés :
 
-- `src/commands/admin.js`
+- `src/canvas/gachaCanvas.js`
 - `src/canvas/panelCanvas.js`
-- `src/canvas/profileCanvas.js`
-- `src/data/items.js`
-- `src/data/missions.js`
-- `src/events/messageCreate.js`
+- `src/commands/cartes.js`
+- `src/commands/collection.js`
+- `src/commands/gacha.js`
+- `src/data/fairyTailCards.js`
 - `src/features/admin/adminHub.js`
-- `src/features/missions/missionHub.js`
-- `src/features/profile/profileHub.js`
-- `src/features/ranking/rankingHub.js`
-- `src/features/rumors/rumorHub.js`
-- `src/features/shop/shopHub.js`
+- `src/features/gacha/gachaHub.js`
 - `src/interactions/router.js`
-- `src/utils/guildConfig.js`
-- `src/utils/inventoryUtils.js`
+- `src/models/GachaAccount.js`
+- `src/models/GachaCard.js`
+- `package.json`
+- `src/utils/gacha.js`
 - `README.md`
 - `AI_CONTEXT.md`
 
@@ -96,4 +106,5 @@ Dernières validations réussies : `node --check` sur tous les fichiers JavaScri
 
 - Ajuster l’équilibrage après retours des joueurs.
 - Ajouter des arcs narratifs, objets et missions saisonnières.
+- Ajouter des bannières limitées, favoris, échanges ou améliorations de cartes si le gacha doit évoluer vers la profondeur d’ArcaneRPG.
 - Préparer séparément une migration MongoDB de `jewels` vers `joyaux` si le renommage technique devient nécessaire.
