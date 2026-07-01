@@ -11,11 +11,6 @@ const {
   MessageFlags,
 } = require('discord.js');
 
-const {
-  getInventorySummary,
-  formatInventoryLines,
-} = require('../../utils/inventoryUtils');
-
 const Profile = require('../../models/Profile');
 const ProfileMission = require('../../models/ProfileMission');
 const Relation = require('../../models/Relation');
