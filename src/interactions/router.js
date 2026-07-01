@@ -74,43 +74,54 @@ async function handleComponentInteraction(interaction) {
     return null;
   }
 
+  // Profil principal
   if (id === 'profile:home') return profileHub.openProfileHub(interaction);
   if (id === 'profile:create') return profileHub.showCreateModal(interaction);
   if (id === 'profile:switch') return profileHub.showSwitchMenu(interaction);
+  if (id === 'profile:switch:select') return profileHub.handleSwitchSelect(interaction);
+  if (id === 'profile:edit') return profileHub.showEditModal(interaction);
+  if (id === 'profile:image') return profileHub.showImageModal(interaction);
 
-if (id === 'profile:inventory') return profileHub.showInventory(interaction, 'all');
-if (id === 'profile:inventory:all') return profileHub.showInventory(interaction, 'all');
-if (id === 'profile:inventory:consommable') return profileHub.showInventory(interaction, 'consommable');
-if (id === 'profile:inventory:equipement') return profileHub.showInventory(interaction, 'equipement');
-if (id === 'profile:inventory:lacrima') return profileHub.showInventory(interaction, 'lacrima');
-if (id === 'profile:inventory:rare') return profileHub.showInventory(interaction, 'rare');
-if (id === 'profile:inventory:mission') return profileHub.showInventory(interaction, 'mission');
+  // Inventaire
+  if (id === 'profile:inventory') return profileHub.showInventory(interaction, 'all');
+  if (id === 'profile:inventory:all') return profileHub.showInventory(interaction, 'all');
+  if (id === 'profile:inventory:consommable') return profileHub.showInventory(interaction, 'consommable');
+  if (id === 'profile:inventory:equipement') return profileHub.showInventory(interaction, 'equipement');
+  if (id === 'profile:inventory:lacrima') return profileHub.showInventory(interaction, 'lacrima');
+  if (id === 'profile:inventory:rare') return profileHub.showInventory(interaction, 'rare');
+  if (id === 'profile:inventory:mission') return profileHub.showInventory(interaction, 'mission');
+  if (id === 'profile:inventory:item') return profileHub.showInventoryItem(interaction);
 
+  // Autres pages profil
   if (id === 'profile:missions') return profileHub.showMissions(interaction);
   if (id === 'profile:relations') return profileHub.showRelations(interaction);
   if (id === 'profile:rumors') return profileHub.showRumors(interaction);
   if (id === 'profile:reputation') return profileHub.showReputation(interaction);
-  if (id === 'profile:edit') return profileHub.showEditModal(interaction);
-  if (id === 'profile:image') return profileHub.showImageModal(interaction);
-  if (id === 'profile:switch:select') return profileHub.handleSwitchSelect(interaction);
 
+  // Boutique
   if (id.startsWith('shop:')) return shopHub.handleShopComponent(interaction);
+
+  // Classement
   if (id.startsWith('ranking:')) return rankingHub.handleRankingComponent(interaction);
+
+  // Admin
   if (id.startsWith('admin:')) return adminHub.handleAdminComponent(interaction);
 
-  return safeEphemeralReply(interaction, 'Interaction inconnue.');
+  return safeEphemeralReply(interaction, `Interaction inconnue : \`${id}\``);
 }
 
 async function handleModalInteraction(interaction) {
   const id = interaction.customId;
 
+  // Profil
   if (id === 'profile:create:modal') return profileHub.handleCreateModal(interaction);
   if (id === 'profile:edit:modal') return profileHub.handleEditModal(interaction);
   if (id === 'profile:image:modal') return profileHub.handleImageModal(interaction);
 
+  // Admin
   if (id.startsWith('admin:')) return adminHub.handleAdminModal(interaction);
 
-  return safeEphemeralReply(interaction, 'Formulaire inconnu.');
+  return safeEphemeralReply(interaction, `Formulaire inconnu : \`${id}\``);
 }
 
 module.exports = {
