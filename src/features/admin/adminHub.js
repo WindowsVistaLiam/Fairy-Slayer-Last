@@ -18,6 +18,16 @@ const { clampReputation } = require('../../utils/reputation');
 const { formatNumber, truncateText } = require('../../utils/format');
 const { applyXp } = require('../../utils/xp');
 const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
+const {
+  getOrCreateGuildConfig,
+  parseDiscordIdList,
+  parseProfileSlotRules,
+  hasConfiguredStaffPermission,
+  formatChannelList,
+  formatRoleList,
+  formatSlotRules,
+  sendGuildLog,
+} = require('../../utils/guildConfig');
 
 const {
   addItemToInventory,
@@ -37,9 +47,8 @@ function createCanvasEmbed(fileName) {
     .setImage(`attachment://${fileName}`);
 }
 
-function hasAdminPermission(interaction) {
-  return interaction.memberPermissions?.has('ManageGuild')
-    || interaction.memberPermissions?.has('Administrator');
+async function hasAdminPermission(interaction) {
+  return hasConfiguredStaffPermission(interaction);
 }
 
 function getAdminRows() {
@@ -93,6 +102,50 @@ function getAdminRows() {
         .setCustomId('admin:config_info')
         .setLabel('Configuration')
         .setEmoji('🧩')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+  ];
+}
+
+function getConfigRows() {
+  return [
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin:config_rp_channels')
+        .setLabel('Salons RP')
+        .setEmoji('💬')
+        .setStyle(ButtonStyle.Primary),
+
+      new ButtonBuilder()
+        .setCustomId('admin:config_logs')
+        .setLabel('Logs')
+        .setEmoji('📜')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('admin:config_staff_roles')
+        .setLabel('Roles staff')
+        .setEmoji('🛡️')
+        .setStyle(ButtonStyle.Secondary),
+    ),
+
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId('admin:config_profile_slots')
+        .setLabel('Slots profils')
+        .setEmoji('👥')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('admin:config_xp')
+        .setLabel('XP RP')
+        .setEmoji('✨')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('admin:home')
+        .setLabel('Retour')
+        .setEmoji('↩️')
         .setStyle(ButtonStyle.Secondary),
     ),
   ];
@@ -198,7 +251,7 @@ function parsePositiveInteger(value, fallback = 1, max = 99) {
 }
 
 async function openAdminHub(interaction) {
-  if (!hasAdminPermission(interaction)) {
+  if (!(await hasAdminPermission(interaction))) {
     return interaction.reply({
       content: 'Tu n’as pas la permission d’utiliser le menu admin.',
       flags: MessageFlags.Ephemeral,
