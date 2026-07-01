@@ -1,64 +1,11 @@
 const path = require('node:path');
 const fs = require('node:fs');
-const { createCanvas, GlobalFonts, loadImage } = require('@napi-rs/canvas');
+const { createCanvas, loadImage } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
 const { getXpNeeded } = require('../utils/xp');
 const { getRankLabel } = require('../utils/ranks');
 const { getReputationLabel } = require('../utils/reputation');
 const { formatNumber, truncateText } = require('../utils/format');
-
-let regularFontFamily = 'sans-serif';
-let boldFontFamily = 'sans-serif';
-
-function tryRegisterFont(filePath, familyName, bold = false) {
-  try {
-    if (fs.existsSync(filePath)) {
-      GlobalFonts.registerFromPath(filePath, familyName);
-      if (bold) boldFontFamily = familyName;
-      else regularFontFamily = familyName;
-      return true;
-    }
-  } catch (_) {
-    // ignore
-  }
-  return false;
-}
-
-// Windows
-tryRegisterFont('C:/Windows/Fonts/arial.ttf', 'FairySlayerRegular');
-tryRegisterFont('C:/Windows/Fonts/arialbd.ttf', 'FairySlayerBold', true);
-
-// Linux / Railway fallback
-tryRegisterFont('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 'FairySlayerRegularLinux');
-tryRegisterFont('/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 'FairySlayerBoldLinux', true);
-
-function setFont(ctx, size, bold = false) {
-  const family = bold ? boldFontFamily : regularFontFamily;
-  ctx.font = `${size}px ${family}`;
-  ctx.textBaseline = 'top';
-  ctx.textAlign = 'left';
-}
-
-function drawText(ctx, text, x, y, size = 24, color = '#ffffff', bold = false, maxWidth) {
-  ctx.save();
-  ctx.fillStyle = color;
-  setFont(ctx, size, bold);
-  if (typeof maxWidth === 'number') {
-    ctx.fillText(String(text ?? ''), x, y, maxWidth);
-  } else {
-    ctx.fillText(String(text ?? ''), x, y);
-  }
-  ctx.restore();
-}
-
-function drawCenteredText(ctx, text, x, y, width, size = 24, color = '#ffffff', bold = false) {
-  ctx.save();
-  ctx.fillStyle = color;
-  setFont(ctx, size, bold);
-  ctx.textAlign = 'center';
-  ctx.fillText(String(text ?? ''), x + width / 2, y);
-  ctx.restore();
-}
 
 function roundRect(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2);
@@ -71,14 +18,43 @@ function roundRect(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+function setFont(ctx, size = 24, weight = 'normal') {
+  ctx.font = `${weight} ${size}px Arial`;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'left';
+}
+
+function drawText(ctx, text, x, y, size = 24, color = '#ffffff', bold = false, maxWidth) {
+  ctx.save();
+  ctx.fillStyle = color;
+  setFont(ctx, size, bold ? 'bold' : 'normal');
+
+  const value = String(text ?? '');
+
+  if (typeof maxWidth === 'number') {
+    ctx.fillText(value, x, y, maxWidth);
+  } else {
+    ctx.fillText(value, x, y);
+  }
+
+  ctx.restore();
+}
+
+function drawCenteredText(ctx, text, x, y, width, size = 24, color = '#ffffff', bold = false) {
+  ctx.save();
+  ctx.fillStyle = color;
+  setFont(ctx, size, bold ? 'bold' : 'normal');
+  ctx.textAlign = 'center';
+  ctx.fillText(String(text ?? ''), x + width / 2, y);
+  ctx.restore();
+}
+
 function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines, size = 20, color = '#ffffff') {
   ctx.save();
   ctx.fillStyle = color;
-  setFont(ctx, size, false);
+  setFont(ctx, size, 'normal');
 
-  const content = String(text || '');
-  const words = content.split(/\s+/).filter(Boolean);
-
+  const words = String(text || '').split(/\s+/).filter(Boolean);
   const lines = [];
   let currentLine = '';
 
@@ -102,11 +78,9 @@ function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines, size =
 
   for (let i = 0; i < lines.length; i += 1) {
     let line = lines[i];
-
     if (i === maxLines - 1 && words.length > line.split(/\s+/).length) {
-      if (line.length > 2) line = `${line.slice(0, line.length - 2)}…`;
+      line = `${line.slice(0, Math.max(0, line.length - 2))}…`;
     }
-
     ctx.fillText(line, x, y + i * lineHeight);
   }
 
@@ -124,7 +98,6 @@ async function loadRemoteImage(url) {
     });
 
     if (!response.ok) return null;
-
     const buffer = Buffer.from(await response.arrayBuffer());
     return await loadImage(buffer);
   } catch (_) {
@@ -158,7 +131,7 @@ function drawMagicCircle(ctx, x, y, radius, color = '#ffcf63') {
   ctx.save();
   ctx.translate(x, y);
   ctx.strokeStyle = color;
-  ctx.globalAlpha = 0.25;
+  ctx.globalAlpha = 0.22;
   ctx.lineWidth = 2;
 
   ctx.beginPath();
@@ -174,6 +147,7 @@ function drawMagicCircle(ctx, x, y, radius, color = '#ffcf63') {
     const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
     const px = Math.cos(angle) * radius * 0.72;
     const py = Math.sin(angle) * radius * 0.72;
+
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
   }
@@ -198,8 +172,8 @@ function drawInfoBox(ctx, label, value, x, y, w, h, accent = '#ffcf63') {
   ctx.fillStyle = accent;
   ctx.fill();
 
-  drawText(ctx, label, x + 20, y + 14, 16, '#cfc8f7', true);
-  drawText(ctx, value, x + 20, y + 38, 24, '#ffffff', true, w - 35);
+  drawText(ctx, label, x + 20, y + 12, 15, '#cec6f6', true);
+  drawText(ctx, value, x + 20, y + 36, 23, '#ffffff', true, w - 34);
 
   ctx.restore();
 }
@@ -246,25 +220,25 @@ async function createProfileCanvas(profile, discordUser) {
   const xpNeeded = getXpNeeded(level);
   const xpProgress = xpNeeded > 0 ? xp / xpNeeded : 0;
 
-  // Fond général
+  // Fond
   const bg = ctx.createLinearGradient(0, 0, width, height);
-  bg.addColorStop(0, '#12091c');
-  bg.addColorStop(0.35, '#1d1338');
-  bg.addColorStop(0.68, '#111b2e');
-  bg.addColorStop(1, '#3b1420');
+  bg.addColorStop(0, '#13081d');
+  bg.addColorStop(0.35, '#22123d');
+  bg.addColorStop(0.68, '#121c2f');
+  bg.addColorStop(1, '#41151f');
   ctx.fillStyle = bg;
   ctx.fillRect(0, 0, width, height);
 
-  drawGlow(ctx, 120, 110, 240, '#7f5cff', 0.30);
-  drawGlow(ctx, 1240, 140, 260, '#ffcf63', 0.18);
-  drawGlow(ctx, 1200, 760, 280, '#ff7a4e', 0.15);
-  drawGlow(ctx, 230, 720, 250, '#3bd6ff', 0.12);
+  drawGlow(ctx, 130, 120, 240, '#7f5cff', 0.30);
+  drawGlow(ctx, 1240, 150, 260, '#ffcf63', 0.18);
+  drawGlow(ctx, 1180, 740, 280, '#ff7a4e', 0.14);
+  drawGlow(ctx, 230, 710, 250, '#3bd6ff', 0.10);
 
-  // Particules
-  for (let i = 0; i < 90; i += 1) {
+  for (let i = 0; i < 85; i += 1) {
     const px = Math.random() * width;
     const py = Math.random() * height;
-    const r = Math.random() * 2.6 + 0.8;
+    const r = Math.random() * 2.3 + 0.8;
+
     ctx.save();
     ctx.globalAlpha = 0.15 + Math.random() * 0.45;
     ctx.fillStyle = i % 3 === 0 ? '#ffcf63' : '#d8cfff';
@@ -274,14 +248,14 @@ async function createProfileCanvas(profile, discordUser) {
     ctx.restore();
   }
 
-  drawMagicCircle(ctx, 1190, 220, 115, '#ffcf63');
-  drawMagicCircle(ctx, 190, 710, 100, '#7f5cff');
+  drawMagicCircle(ctx, 1180, 220, 110, '#ffcf63');
+  drawMagicCircle(ctx, 180, 705, 96, '#7f5cff');
 
   // Carte principale
   roundRect(ctx, 50, 50, width - 100, height - 100, 36);
   ctx.fillStyle = 'rgba(8, 12, 24, 0.84)';
   ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 207, 99, 0.70)';
+  ctx.strokeStyle = 'rgba(255, 207, 99, 0.72)';
   ctx.lineWidth = 3;
   ctx.stroke();
 
@@ -303,35 +277,31 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, 'FAIRY SLAYER', 122, 108, 22, '#ffcf63', true);
-  drawText(ctx, truncateText(characterName, 34), 122, 136, 42, '#ffffff', true);
+  drawText(ctx, 'FAIRY SLAYER', 122, 106, 22, '#ffcf63', true);
+  drawText(ctx, truncateText(characterName, 34), 122, 134, 42, '#ffffff', true);
 
-  drawText(ctx, `Mage de rang ${mageRank}`, 885, 106, 22, '#ffffff', true);
-  drawText(ctx, getRankLabel(mageRank), 885, 136, 34, '#ffcf63', true);
+  drawText(ctx, `Mage de rang ${mageRank}`, 885, 104, 21, '#ffffff', true);
+  drawText(ctx, getRankLabel(mageRank), 885, 132, 33, '#ffcf63', true);
 
-  // Logo
+  // Logo local
   const logoPath = path.join(__dirname, '..', 'assets', 'fairy-slayer-logo.png');
   const logo = await loadLocalImage(logoPath);
 
   if (logo) {
     ctx.save();
     ctx.globalAlpha = 0.96;
-    ctx.drawImage(logo, 1180, 92, 110, 110);
+    ctx.drawImage(logo, 1175, 92, 112, 112);
     ctx.restore();
 
-    // watermark
     ctx.save();
-    ctx.globalAlpha = 0.07;
-    ctx.drawImage(logo, 980, 260, 260, 260);
+    ctx.globalAlpha = 0.06;
+    ctx.drawImage(logo, 980, 260, 250, 250);
     ctx.restore();
   }
 
-  // Avatar
-  const avatarUrl =
-    profile?.avatarUrl ||
-    discordUser.displayAvatarURL({ extension: 'png', size: 512, forceStatic: true });
-
-  const avatar = await loadRemoteImage(avatarUrl);
+  // Avatar perso uniquement
+  const avatarUrl = profile?.avatarUrl || null;
+  const avatar = avatarUrl ? await loadRemoteImage(avatarUrl) : null;
 
   const avatarX = 100;
   const avatarY = 240;
@@ -358,11 +328,14 @@ async function createProfileCanvas(profile, discordUser) {
     ctx.drawImage(avatar, drawX, drawY, drawW, drawH);
   } else {
     const fallback = ctx.createLinearGradient(avatarX, avatarY, avatarX + avatarW, avatarY + avatarH);
-    fallback.addColorStop(0, '#20284a');
+    fallback.addColorStop(0, '#21294c');
     fallback.addColorStop(1, '#101320');
     ctx.fillStyle = fallback;
     ctx.fillRect(avatarX + 12, avatarY + 12, avatarW - 24, avatarH - 24);
-    drawCenteredText(ctx, 'Aucune image', avatarX + 12, avatarY + 185, avatarW - 24, 26, '#ffffff', true);
+
+    drawCenteredText(ctx, 'Aucune image', avatarX + 12, avatarY + 168, avatarW - 24, 28, '#ffffff', true);
+    drawCenteredText(ctx, 'définie', avatarX + 12, avatarY + 205, avatarW - 24, 28, '#ffffff', true);
+    drawCenteredText(ctx, 'Utilise "Modifier l’image"', avatarX + 12, avatarY + 260, avatarW - 24, 18, '#cec6f6', false);
   }
 
   ctx.restore();
@@ -372,7 +345,7 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.fill();
   ctx.strokeStyle = 'rgba(255, 207, 99, 0.35)';
   ctx.stroke();
-  drawCenteredText(ctx, `Niveau RP ${level}`, avatarX + 28, avatarY + avatarH - 54, avatarW - 56, 22, '#ffcf63', true);
+  drawCenteredText(ctx, `Niveau RP ${level}`, avatarX + 28, avatarY + avatarH - 53, avatarW - 56, 22, '#ffcf63', true);
 
   // Infos principales
   drawInfoBox(ctx, 'MAGIE', truncateText(magicType, 26), 470, 240, 380, 78, '#ff7a4e');
@@ -389,8 +362,8 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, 'NIVEAU DE PUISSANCE', 496, 456, 18, '#cec6f6', true);
-  drawText(ctx, formatNumber(powerLevel), 496, 484, 44, '#ffcf63', true);
+  drawText(ctx, 'NIVEAU DE PUISSANCE', 496, 454, 18, '#cec6f6', true);
+  drawText(ctx, formatNumber(powerLevel), 496, 482, 44, '#ffcf63', true);
   drawBar(ctx, 760, 488, 460, 26, Math.min(1, powerLevel / 10000), '#7f5cff', '#ff7a4e');
 
   // XP
@@ -401,9 +374,9 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, `Progression du niveau ${level}`, 496, 590, 22, '#ffffff', true);
-  drawText(ctx, `${formatNumber(xp)} / ${formatNumber(xpNeeded)} XP`, 980, 592, 18, '#cec6f6', true);
-  drawBar(ctx, 496, 628, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
+  drawText(ctx, `Progression du niveau ${level}`, 496, 590, 21, '#ffffff', true);
+  drawText(ctx, `${formatNumber(xp)} / ${formatNumber(xpNeeded)} XP`, 965, 590, 18, '#cec6f6', true);
+  drawBar(ctx, 496, 626, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
 
   // Description
   roundRect(ctx, 100, 700, 720, 78, 18);
@@ -412,8 +385,8 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.strokeStyle = 'rgba(255,255,255,0.10)';
   ctx.stroke();
 
-  drawText(ctx, 'DESCRIPTION', 122, 714, 16, '#cec6f6', true);
-  drawWrappedText(ctx, description, 122, 738, 675, 22, 2, 19, '#ffffff');
+  drawText(ctx, 'DESCRIPTION', 122, 712, 16, '#cec6f6', true);
+  drawWrappedText(ctx, description, 122, 736, 675, 22, 2, 19, '#ffffff');
 
   // Stats bas
   drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 700, 180, 78, '#ffcf63');
