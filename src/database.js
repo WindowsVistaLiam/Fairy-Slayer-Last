@@ -1,9 +1,9 @@
-const dns = require("node:dns");
-
-dns.setDefaultResultOrder("ipv4first");
-dns.setServers(["1.1.1.1", "8.8.8.8"]);
-
+const dns = require('node:dns');
 const mongoose = require('mongoose');
+
+// Corrige les soucis de résolution DNS SRV MongoDB sur certains réseaux Windows.
+dns.setDefaultResultOrder('ipv4first');
+dns.setServers(['1.1.1.1', '8.8.8.8']);
 
 async function connectDatabase() {
   const mongoUri = process.env.MONGO_URI;

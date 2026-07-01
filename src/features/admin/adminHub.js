@@ -10,9 +10,16 @@ const {
 
 const Profile = require('../../models/Profile');
 const ReputationLog = require('../../models/ReputationLog');
+const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { normalizeMageRank } = require('../../utils/ranks');
 const { clampReputation } = require('../../utils/reputation');
 const { formatNumber, truncateText } = require('../../utils/format');
+
+function createCanvasEmbed(fileName) {
+  return new EmbedBuilder()
+    .setColor(0xff6b6b)
+    .setImage(`attachment://${fileName}`);
+}
 
 function hasAdminPermission(interaction) {
   return interaction.memberPermissions?.has('ManageGuild') || interaction.memberPermissions?.has('Administrator');
@@ -33,20 +40,22 @@ async function openAdminHub(interaction) {
     return interaction.reply({ content: 'Tu n’as pas la permission d’utiliser le menu admin.', ephemeral: true });
   }
 
-  const embed = new EmbedBuilder()
-    .setColor(0xff6b6b)
-    .setTitle('Fairy Slayer — Menu admin')
-    .setDescription([
-      'Depuis ce menu, le staff peut gérer la base RP du serveur.',
-      '',
-      '**V1 disponible :**',
-      '• Voir les profils récents',
-      '• Modifier rang de mage, puissance, Jewels et réputation',
-      '',
-      '**Prévu ensuite :** inventaire, boutique complète, missions, rumeurs et relations.',
-    ].join('\n'));
+  const fileName = 'fairy-slayer-admin.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'admin',
+    section: 'Menu admin',
+    title: 'Gestion Fairy Slayer',
+    subtitle: 'Menu réservé au staff du serveur.',
+    lines: [
+      'V1 disponible : voir les profils récents.',
+      'V1 disponible : modifier rang de mage, puissance, Jewels et réputation.',
+      'Prévu ensuite : inventaire, boutique complète, missions, rumeurs et relations.',
+    ],
+    footer: 'Utilise les boutons sous le Canvas pour naviguer dans le menu admin.',
+  });
 
-  return interaction.reply({ embeds: [embed], components: getAdminRows(), ephemeral: true });
+  return interaction.reply({ embeds: [createCanvasEmbed(fileName)], components: getAdminRows(), files: [attachment], ephemeral: true });
 }
 
 async function showRecentProfiles(interaction) {
@@ -55,15 +64,21 @@ async function showRecentProfiles(interaction) {
     .limit(10);
 
   const lines = profiles.length
-    ? profiles.map((profile) => `• **${profile.characterName}** — <@${profile.userId}> · Rang ${profile.mageRank} · Puissance ${formatNumber(profile.powerLevel)} · Rep ${profile.reputation}`)
+    ? profiles.map((profile) => `${profile.characterName} — joueur ${profile.userId} · Rang ${profile.mageRank} · Puissance ${formatNumber(profile.powerLevel)} · Rep ${profile.reputation}`)
     : ['Aucun profil trouvé.'];
 
-  const embed = new EmbedBuilder()
-    .setColor(0xff6b6b)
-    .setTitle('👤 Profils récents')
-    .setDescription(lines.join('\n'));
+  const fileName = 'fairy-slayer-admin-profils.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'admin',
+    section: 'Profils récents',
+    title: `${profiles.length} profil(s) affiché(s)`,
+    subtitle: 'Derniers profils créés ou modifiés sur ce serveur.',
+    lines,
+    footer: 'Menu /admin · Profils récents',
+  });
 
-  return interaction.update({ embeds: [embed], components: getAdminRows() });
+  return interaction.update({ embeds: [createCanvasEmbed(fileName)], components: getAdminRows(), files: [attachment] });
 }
 
 async function showEditProfileModal(interaction) {
@@ -142,25 +157,25 @@ async function handleEditProfileModal(interaction) {
 
   if (mageRankInput) {
     profile.mageRank = normalizeMageRank(mageRankInput);
-    changes.push(`Rang : **${profile.mageRank}**`);
+    changes.push(`Rang : ${profile.mageRank}`);
   }
 
   if (powerLevelInput) {
     const power = Math.max(0, Math.min(999999, Number.parseInt(powerLevelInput, 10) || 0));
     profile.powerLevel = power;
-    changes.push(`Puissance : **${formatNumber(power)}**`);
+    changes.push(`Puissance : ${formatNumber(power)}`);
   }
 
   const jewelsDelta = Number.parseInt(jewelsDeltaInput || '0', 10) || 0;
   if (jewelsDelta !== 0) {
     profile.jewels = Math.max(0, profile.jewels + jewelsDelta);
-    changes.push(`Jewels : **${formatNumber(profile.jewels)}** (${jewelsDelta > 0 ? '+' : ''}${formatNumber(jewelsDelta)})`);
+    changes.push(`Jewels : ${formatNumber(profile.jewels)} (${jewelsDelta > 0 ? '+' : ''}${formatNumber(jewelsDelta)})`);
   }
 
   const reputationDelta = Number.parseInt(reputationDeltaInput || '0', 10) || 0;
   if (reputationDelta !== 0) {
     profile.reputation = clampReputation(profile.reputation + reputationDelta);
-    changes.push(`Réputation : **${profile.reputation}** (${reputationDelta > 0 ? '+' : ''}${reputationDelta})`);
+    changes.push(`Réputation : ${profile.reputation} (${reputationDelta > 0 ? '+' : ''}${reputationDelta})`);
 
     await ReputationLog.create({
       profileId: profile._id,
@@ -173,34 +188,38 @@ async function handleEditProfileModal(interaction) {
 
   await profile.save();
 
-  const embed = new EmbedBuilder()
-    .setColor(0x57f287)
-    .setTitle('✅ Profil modifié')
-    .setDescription([
-      `**Personnage :** ${profile.characterName}`,
-      `**Joueur :** <@${profile.userId}>`,
-      '',
-      changes.length ? changes.join('\n') : 'Aucune modification appliquée.',
-    ].join('\n'));
+  const fileName = 'fairy-slayer-admin-modification.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'admin',
+    section: 'Profil modifié',
+    title: profile.characterName,
+    subtitle: `Joueur Discord : ${profile.userId}`,
+    lines: changes.length ? changes : ['Aucune modification appliquée.'],
+    footer: 'Menu /admin · Modification staff enregistrée',
+  });
 
-  return interaction.reply({ embeds: [embed], ephemeral: true });
+  return interaction.reply({ embeds: [createCanvasEmbed(fileName)], files: [attachment], ephemeral: true });
 }
 
 async function showConfigInfo(interaction) {
-  const embed = new EmbedBuilder()
-    .setColor(0xff6b6b)
-    .setTitle('🧩 Configuration')
-    .setDescription([
-      'La configuration avancée arrivera dans la prochaine étape.',
-      '',
-      '**Prévu :**',
-      '• Salons RP qui donnent de l’XP',
-      '• Salon de logs',
-      '• Rôles staff',
-      '• Slots de profils selon les rôles',
-    ].join('\n'));
+  const fileName = 'fairy-slayer-admin-config.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'admin',
+    section: 'Configuration',
+    title: 'Paramètres serveur',
+    subtitle: 'La configuration avancée arrivera dans la prochaine étape.',
+    lines: [
+      'Prévu : salons RP qui donnent de l’XP.',
+      'Prévu : salon de logs.',
+      'Prévu : rôles staff.',
+      'Prévu : slots de profils selon les rôles.',
+    ],
+    footer: 'Menu /admin · Configuration',
+  });
 
-  return interaction.update({ embeds: [embed], components: getAdminRows() });
+  return interaction.update({ embeds: [createCanvasEmbed(fileName)], components: getAdminRows(), files: [attachment] });
 }
 
 async function handleAdminComponent(interaction) {

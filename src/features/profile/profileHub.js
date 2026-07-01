@@ -10,7 +10,6 @@ const {
   TextInputStyle,
 } = require('discord.js');
 
-const Player = require('../../models/Player');
 const Profile = require('../../models/Profile');
 const Inventory = require('../../models/Inventory');
 const ProfileMission = require('../../models/ProfileMission');
@@ -18,10 +17,17 @@ const Relation = require('../../models/Relation');
 const Rumor = require('../../models/Rumor');
 const ReputationLog = require('../../models/ReputationLog');
 const { createProfileCanvas } = require('../../canvas/profileCanvas');
+const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { getOrCreatePlayer, getActiveProfile, setActiveProfile, countProfiles } = require('../../utils/activeProfile');
 const { normalizeMageRank } = require('../../utils/ranks');
 const { getReputationLabel } = require('../../utils/reputation');
 const { formatNumber, truncateText } = require('../../utils/format');
+
+function createCanvasEmbed(fileName, color = 0x7c5cff) {
+  return new EmbedBuilder()
+    .setColor(color)
+    .setImage(`attachment://${fileName}`);
+}
 
 function getMainRows() {
   return [
@@ -37,6 +43,9 @@ function getMainRows() {
       new ButtonBuilder().setCustomId('profile:switch').setLabel('Changer').setEmoji('🔁').setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId('profile:edit').setLabel('Modifier').setEmoji('⚙️').setStyle(ButtonStyle.Secondary),
     ),
+    new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId('profile:image').setLabel('Modifier l’image').setEmoji('🖼️').setStyle(ButtonStyle.Secondary),
+    ),
   ];
 }
 
@@ -46,6 +55,17 @@ function getNoProfileRows() {
       new ButtonBuilder().setCustomId('profile:create').setLabel('Créer mon premier personnage').setEmoji('✨').setStyle(ButtonStyle.Success),
     ),
   ];
+}
+
+function isValidHttpUrl(value) {
+  if (!value) return true;
+
+  try {
+    const url = new URL(value);
+    return ['http:', 'https:'].includes(url.protocol);
+  } catch (_) {
+    return false;
+  }
 }
 
 async function replyOrUpdate(interaction, payload) {
@@ -78,22 +98,11 @@ async function openProfileHub(interaction) {
     });
   }
 
+  const fileName = 'fairy-slayer-profil.png';
   const attachment = await createProfileCanvas(profile, interaction.user);
 
-  const embed = new EmbedBuilder()
-    .setColor(0x7c5cff)
-    .setTitle(`Fairy Slayer — ${profile.characterName}`)
-    .setDescription([
-      `**Mage de rang :** ${profile.mageRank}`,
-      `**Niveau de puissance :** ${formatNumber(profile.powerLevel)}`,
-      `**Réputation :** ${profile.reputation} — ${getReputationLabel(profile.reputation)}`,
-      '',
-      'Utilise les boutons pour gérer ce personnage.',
-    ].join('\n'))
-    .setImage('attachment://fairy-slayer-profil.png');
-
   return replyOrUpdate(interaction, {
-    embeds: [embed],
+    embeds: [createCanvasEmbed(fileName)],
     components: getMainRows(),
     files: [attachment],
     ephemeral: false,
@@ -218,12 +227,22 @@ async function showSwitchMenu(interaction) {
     ),
   ];
 
-  const embed = new EmbedBuilder()
-    .setColor(0x7c5cff)
-    .setTitle('Fairy Slayer — Changer de personnage')
-    .setDescription('Sélectionne le personnage qui recevra l’XP, les Jewels, les missions et les actions RP.');
+  const fileName = 'fairy-slayer-profils.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'profile',
+    section: 'Changer de personnage',
+    title: `${profiles.length} profil(s) disponible(s)`,
+    subtitle: 'Le profil actif reçoit l’XP, les Jewels, les missions et les actions RP.',
+    lines: profiles.map((profile, index) => `${index + 1}. ${profile.characterName} — Rang ${profile.mageRank} · Puissance ${formatNumber(profile.powerLevel)} · Niveau ${profile.level}`),
+    footer: 'Utilise le menu déroulant sous le Canvas pour choisir ton personnage actif.',
+  });
 
-  return interaction.update({ embeds: [embed], components: rows, files: [] });
+  return interaction.update({
+    embeds: [createCanvasEmbed(fileName)],
+    components: rows,
+    files: [attachment],
+  });
 }
 
 async function handleSwitchSelect(interaction) {
@@ -276,12 +295,12 @@ async function showEditModal(interaction) {
     ),
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
-        .setCustomId('avatarUrl')
-        .setLabel('Lien image du personnage')
+        .setCustomId('title')
+        .setLabel('Titre RP')
         .setStyle(TextInputStyle.Short)
         .setRequired(false)
-        .setMaxLength(500)
-        .setValue(profile.avatarUrl || ''),
+        .setMaxLength(80)
+        .setValue(profile.title || ''),
     ),
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
@@ -304,10 +323,53 @@ async function handleEditModal(interaction) {
   profile.characterName = interaction.fields.getTextInputValue('characterName').trim();
   profile.guildName = interaction.fields.getTextInputValue('guildName')?.trim() || 'Sans guilde';
   profile.magicType = interaction.fields.getTextInputValue('magicType').trim();
-  profile.avatarUrl = interaction.fields.getTextInputValue('avatarUrl')?.trim() || null;
+  profile.title = interaction.fields.getTextInputValue('title')?.trim() || 'Mage errant';
   profile.description = interaction.fields.getTextInputValue('description')?.trim() || 'Aucune description renseignée.';
 
   await profile.save();
+  return openProfileHub(interaction);
+}
+
+async function showImageModal(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+  if (!profile) return openProfileHub(interaction);
+
+  const modal = new ModalBuilder()
+    .setCustomId('profile:image:modal')
+    .setTitle('Modifier l’image du personnage');
+
+  modal.addComponents(
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('avatarUrl')
+        .setLabel('Lien image du personnage')
+        .setPlaceholder('https://...png, jpg, jpeg, webp ou gif')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(500)
+        .setValue(profile.avatarUrl || ''),
+    ),
+  );
+
+  return interaction.showModal(modal);
+}
+
+async function handleImageModal(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+  if (!profile) return openProfileHub(interaction);
+
+  const avatarUrl = interaction.fields.getTextInputValue('avatarUrl')?.trim() || null;
+
+  if (!isValidHttpUrl(avatarUrl)) {
+    return interaction.reply({
+      content: 'Le lien image doit commencer par `http://` ou `https://`. Laisse le champ vide pour revenir à ton avatar Discord.',
+      ephemeral: true,
+    });
+  }
+
+  profile.avatarUrl = avatarUrl;
+  await profile.save();
+
   return openProfileHub(interaction);
 }
 
@@ -318,16 +380,28 @@ async function showInventory(interaction) {
   const inventory = await Inventory.findOne({ profileId: profile._id });
   const itemCount = inventory?.items?.reduce((total, item) => total + item.quantity, 0) || 0;
 
-  const embed = new EmbedBuilder()
-    .setColor(0x2b8cff)
-    .setTitle(`🎒 Inventaire — ${profile.characterName}`)
-    .setDescription([
-      `**Objets possédés :** ${formatNumber(itemCount)}`,
-      '',
-      'La V1 prépare la base de l’inventaire. La V2 ajoutera les objets détaillés, les catégories, l’achat/vente et la grille Canvas complète.',
-    ].join('\n'));
+  const fileName = 'fairy-slayer-inventaire.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'inventory',
+    section: `Inventaire — ${profile.characterName}`,
+    title: `${formatNumber(itemCount)} objet(s) possédé(s)`,
+    subtitle: 'La grille détaillée d’objets arrivera dans la V2.',
+    stats: [
+      { label: 'Jewels', value: formatNumber(profile.jewels) },
+      { label: 'Rang', value: profile.mageRank },
+      { label: 'Puissance', value: formatNumber(profile.powerLevel) },
+      { label: 'Objets', value: formatNumber(itemCount) },
+    ],
+    lines: [
+      'Base inventaire active : chaque personnage possède son inventaire séparé.',
+      'La prochaine étape ajoutera les catégories : consommables, équipements, lacrimas, rares et objets de mission.',
+      'Les achats de la boutique seront liés directement au profil actif.',
+    ],
+    footer: 'Menu /profil · Inventaire du personnage actif',
+  });
 
-  return interaction.update({ embeds: [embed], components: getMainRows(), files: [] });
+  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0x2b8cff)], components: getMainRows(), files: [attachment] });
 }
 
 async function showMissions(interaction) {
@@ -338,18 +412,28 @@ async function showMissions(interaction) {
   const completed = await ProfileMission.countDocuments({ profileId: profile._id, status: 'completed' });
   const failed = await ProfileMission.countDocuments({ profileId: profile._id, status: 'failed' });
 
-  const embed = new EmbedBuilder()
-    .setColor(0xffb347)
-    .setTitle(`📜 Missions — ${profile.characterName}`)
-    .setDescription([
-      `**Actives :** ${active}`,
-      `**Terminées :** ${completed}`,
-      `**Échouées :** ${failed}`,
-      '',
+  const fileName = 'fairy-slayer-missions.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'missions',
+    section: `Missions — ${profile.characterName}`,
+    title: 'Tableau de missions',
+    subtitle: 'Suivi des missions du personnage actif.',
+    stats: [
+      { label: 'Actives', value: formatNumber(active) },
+      { label: 'Terminées', value: formatNumber(completed) },
+      { label: 'Échouées', value: formatNumber(failed) },
+      { label: 'Rang mage', value: profile.mageRank },
+    ],
+    lines: [
       'La V2/V3 ajoutera les missions disponibles, acceptées, validées par le staff et les récompenses.',
-    ].join('\n'));
+      'Les prérequis pourront utiliser le rang de mage et le niveau de puissance.',
+      'Les récompenses pourront donner XP, Jewels, réputation et objets.',
+    ],
+    footer: 'Menu /profil · Missions du personnage actif',
+  });
 
-  return interaction.update({ embeds: [embed], components: getMainRows(), files: [] });
+  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0xffb347)], components: getMainRows(), files: [attachment] });
 }
 
 async function showRelations(interaction) {
@@ -358,15 +442,21 @@ async function showRelations(interaction) {
 
   const relations = await Relation.find({ ownerProfileId: profile._id }).limit(8).populate('targetProfileId');
   const lines = relations.length
-    ? relations.map((relation) => `• **${relation.targetProfileId?.characterName || 'Personnage inconnu'}** — ${relation.type} · confiance ${relation.trust}% · tension ${relation.tension}%`)
+    ? relations.map((relation) => `${relation.targetProfileId?.characterName || 'Personnage inconnu'} — ${relation.type} · confiance ${relation.trust}% · tension ${relation.tension}%`)
     : ['Aucune relation renseignée pour l’instant.'];
 
-  const embed = new EmbedBuilder()
-    .setColor(0x64d2a6)
-    .setTitle(`🤝 Relations — ${profile.characterName}`)
-    .setDescription(lines.join('\n'));
+  const fileName = 'fairy-slayer-relations.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'relations',
+    section: `Relations — ${profile.characterName}`,
+    title: `${relations.length} relation(s) affichée(s)`,
+    subtitle: 'Liens sociaux, alliances, rivalités et tensions RP.',
+    lines,
+    footer: 'Menu /profil · Relations du personnage actif',
+  });
 
-  return interaction.update({ embeds: [embed], components: getMainRows(), files: [] });
+  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0x64d2a6)], components: getMainRows(), files: [attachment] });
 }
 
 async function showRumors(interaction) {
@@ -380,15 +470,21 @@ async function showRumors(interaction) {
   }).sort({ createdAt: -1 }).limit(8);
 
   const lines = rumors.length
-    ? rumors.map((rumor) => `• **${rumor.type}** · crédibilité ${rumor.credibility}% — ${truncateText(rumor.content, 110)}`)
+    ? rumors.map((rumor) => `${rumor.type} · crédibilité ${rumor.credibility}% — ${truncateText(rumor.content, 110)}`)
     : ['Aucune rumeur active pour l’instant.'];
 
-  const embed = new EmbedBuilder()
-    .setColor(0xc084fc)
-    .setTitle(`🗣️ Rumeurs — ${profile.characterName}`)
-    .setDescription(lines.join('\n'));
+  const fileName = 'fairy-slayer-rumeurs.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'rumors',
+    section: `Rumeurs — ${profile.characterName}`,
+    title: `${rumors.length} rumeur(s) active(s)`,
+    subtitle: 'Les rumeurs pourront influencer les prix, la réputation et les relations.',
+    lines,
+    footer: 'Menu /profil · Rumeurs actives du personnage actif',
+  });
 
-  return interaction.update({ embeds: [embed], components: getMainRows(), files: [] });
+  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0xc084fc)], components: getMainRows(), files: [attachment] });
 }
 
 async function showReputation(interaction) {
@@ -397,21 +493,27 @@ async function showReputation(interaction) {
 
   const logs = await ReputationLog.find({ profileId: profile._id }).sort({ createdAt: -1 }).limit(5);
   const lines = logs.length
-    ? logs.map((log) => `• ${log.amount > 0 ? '+' : ''}${log.amount} — ${truncateText(log.reason, 90)}`)
+    ? logs.map((log) => `${log.amount > 0 ? '+' : ''}${log.amount} — ${truncateText(log.reason, 90)}`)
     : ['Aucun historique de réputation.'];
 
-  const embed = new EmbedBuilder()
-    .setColor(0xffdf91)
-    .setTitle(`⭐ Réputation — ${profile.characterName}`)
-    .setDescription([
-      `**Score :** ${profile.reputation}`,
-      `**Statut :** ${getReputationLabel(profile.reputation)}`,
-      '',
-      '**Derniers changements :**',
-      ...lines,
-    ].join('\n'));
+  const fileName = 'fairy-slayer-reputation.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'reputation',
+    section: `Réputation — ${profile.characterName}`,
+    title: getReputationLabel(profile.reputation),
+    subtitle: 'La réputation influence les prix et la perception RP du personnage.',
+    stats: [
+      { label: 'Score', value: String(profile.reputation) },
+      { label: 'Statut', value: getReputationLabel(profile.reputation) },
+      { label: 'Rang', value: profile.mageRank },
+      { label: 'Puissance', value: formatNumber(profile.powerLevel) },
+    ],
+    lines: ['Derniers changements :', ...lines],
+    footer: 'Menu /profil · Réputation du personnage actif',
+  });
 
-  return interaction.update({ embeds: [embed], components: getMainRows(), files: [] });
+  return interaction.update({ embeds: [createCanvasEmbed(fileName, 0xffdf91)], components: getMainRows(), files: [attachment] });
 }
 
 module.exports = {
@@ -422,6 +524,8 @@ module.exports = {
   handleSwitchSelect,
   showEditModal,
   handleEditModal,
+  showImageModal,
+  handleImageModal,
   showInventory,
   showMissions,
   showRelations,

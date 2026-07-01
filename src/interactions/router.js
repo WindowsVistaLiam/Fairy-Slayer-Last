@@ -15,6 +15,7 @@ async function handleComponentInteraction(interaction) {
   if (id === 'profile:rumors') return profileHub.showRumors(interaction);
   if (id === 'profile:reputation') return profileHub.showReputation(interaction);
   if (id === 'profile:edit') return profileHub.showEditModal(interaction);
+  if (id === 'profile:image') return profileHub.showImageModal(interaction);
   if (id === 'profile:switch:select') return profileHub.handleSwitchSelect(interaction);
 
   if (id.startsWith('shop:')) return shopHub.handleShopComponent(interaction);
@@ -29,6 +30,7 @@ async function handleModalInteraction(interaction) {
 
   if (id === 'profile:create:modal') return profileHub.handleCreateModal(interaction);
   if (id === 'profile:edit:modal') return profileHub.handleEditModal(interaction);
+  if (id === 'profile:image:modal') return profileHub.handleImageModal(interaction);
   if (id.startsWith('admin:')) return adminHub.handleAdminModal(interaction);
 
   return interaction.reply({ content: 'Formulaire inconnu.', ephemeral: true });

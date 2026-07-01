@@ -7,6 +7,7 @@ const {
 
 const Item = require('../../models/Item');
 const Rumor = require('../../models/Rumor');
+const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { getActiveProfile } = require('../../utils/activeProfile');
 const { calculateFinalPrice } = require('../../utils/prices');
 const { canAccessRank } = require('../../utils/ranks');
@@ -59,6 +60,12 @@ const DEFAULT_ITEMS = [
   },
 ];
 
+function createCanvasEmbed(fileName) {
+  return new EmbedBuilder()
+    .setColor(0x9b8cff)
+    .setImage(`attachment://${fileName}`);
+}
+
 async function seedDefaultItems() {
   for (const item of DEFAULT_ITEMS) {
     await Item.findOneAndUpdate(
@@ -84,7 +91,7 @@ function getShopRows() {
   ];
 }
 
-async function buildShopEmbed(interaction, category = 'all') {
+async function buildShopPayload(interaction, category = 'all') {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
   if (!profile) {
@@ -113,33 +120,38 @@ async function buildShopEmbed(interaction, category = 'all') {
   const lines = items.map((item) => {
     const finalPrice = calculateFinalPrice(item.basePrice, profile, rumors);
     const allowed = canAccessRank(profile.mageRank, item.requiredMageRank) && profile.powerLevel >= item.requiredPowerLevel;
-    const lock = allowed ? '✅' : '🔒';
+    const lock = allowed ? 'Disponible' : 'Verrouillé';
 
-    return [
-      `${lock} **${item.name}**`,
-      `Type : ${item.type} · Rareté : ${item.rarity}`,
-      `Prix : **${formatNumber(finalPrice)} Jewels** · Rang requis : ${item.requiredMageRank} · Puissance requise : ${formatNumber(item.requiredPowerLevel)}`,
-    ].join('\n');
+    return `${lock} — ${item.name} · ${formatNumber(finalPrice)} Jewels · Rang ${item.requiredMageRank} · Puissance ${formatNumber(item.requiredPowerLevel)}`;
   });
 
-  const embed = new EmbedBuilder()
-    .setColor(0x9b8cff)
-    .setTitle(`🛒 Boutique — ${profile.characterName}`)
-    .setDescription([
-      `**Jewels :** ${formatNumber(profile.jewels)}`,
-      `**Réputation :** ${profile.reputation}`,
-      `**Rang :** ${profile.mageRank} · **Puissance :** ${formatNumber(profile.powerLevel)}`,
-      '',
-      lines.length ? lines.join('\n\n') : 'Aucun objet dans cette catégorie.',
-      '',
-      '*La V1 affiche la boutique et les prix dynamiques. L’achat/vente détaillé arrive en V2.*',
-    ].join('\n'));
+  const fileName = 'fairy-slayer-boutique.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'shop',
+    section: `Boutique — ${profile.characterName}`,
+    title: category === 'all' ? 'Tous les objets' : `Catégorie ${category}`,
+    subtitle: 'Prix dynamiques selon réputation, rumeurs, rang et puissance.',
+    stats: [
+      { label: 'Jewels', value: formatNumber(profile.jewels) },
+      { label: 'Réputation', value: String(profile.reputation) },
+      { label: 'Rang', value: profile.mageRank },
+      { label: 'Puissance', value: formatNumber(profile.powerLevel) },
+    ],
+    lines: lines.length ? lines : ['Aucun objet dans cette catégorie.'],
+    footer: 'La V1 affiche la boutique. L’achat/vente détaillé arrive en V2.',
+  });
 
-  return { embeds: [embed], components: getShopRows(), ephemeral: false };
+  return {
+    embeds: [createCanvasEmbed(fileName)],
+    components: getShopRows(),
+    files: [attachment],
+    ephemeral: false,
+  };
 }
 
 async function openShopHub(interaction) {
-  return interaction.reply(await buildShopEmbed(interaction, 'all'));
+  return interaction.reply(await buildShopPayload(interaction, 'all'));
 }
 
 async function handleShopComponent(interaction) {
@@ -149,7 +161,7 @@ async function handleShopComponent(interaction) {
     return interaction.reply({ content: 'La vente d’objets sera ajoutée dans la V2.', ephemeral: true });
   }
 
-  return interaction.update(await buildShopEmbed(interaction, category));
+  return interaction.update(await buildShopPayload(interaction, category));
 }
 
 module.exports = {

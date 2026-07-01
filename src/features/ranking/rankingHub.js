@@ -7,7 +7,14 @@ const {
 
 const Profile = require('../../models/Profile');
 const ProfileMission = require('../../models/ProfileMission');
+const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { formatNumber } = require('../../utils/format');
+
+function createCanvasEmbed(fileName) {
+  return new EmbedBuilder()
+    .setColor(0xffdf91)
+    .setImage(`attachment://${fileName}`);
+}
 
 function getRankingRows(active = 'level') {
   const button = (id, label, emoji) => new ButtonBuilder()
@@ -52,55 +59,54 @@ async function getMissionRanking(guildId) {
 
 async function buildRankingPayload(guildId, type = 'level') {
   let title = 'Classement niveau RP';
-  let rows = [];
+  let lines = [];
 
   if (type === 'missions') {
     title = 'Classement missions terminées';
-    rows = await getMissionRanking(guildId);
-
-    const lines = rows.map((row, index) => `${medal(index)} **${row.profile.characterName}** — ${formatNumber(row.total)} mission(s)`);
-
-    return {
-      embeds: [new EmbedBuilder()
-        .setColor(0xffdf91)
-        .setTitle(`🏆 Fairy Slayer — ${title}`)
-        .setDescription(lines.length ? lines.join('\n') : 'Aucun résultat pour l’instant.')],
-      components: getRankingRows(type),
+    const rows = await getMissionRanking(guildId);
+    lines = rows.map((row, index) => `${medal(index)} ${row.profile.characterName} — ${formatNumber(row.total)} mission(s)`);
+  } else {
+    const sortMap = {
+      level: { level: -1, xp: -1 },
+      power: { powerLevel: -1 },
+      jewels: { jewels: -1 },
+      reputation: { reputation: -1 },
     };
+
+    const labelMap = {
+      level: (profile) => `Niveau ${profile.level} · ${formatNumber(profile.xp)} XP`,
+      power: (profile) => `${formatNumber(profile.powerLevel)} · Rang ${profile.mageRank}`,
+      jewels: (profile) => `${formatNumber(profile.jewels)} Jewels`,
+      reputation: (profile) => `${profile.reputation} réputation`,
+    };
+
+    const titleMap = {
+      level: 'Classement niveau RP',
+      power: 'Classement puissance',
+      jewels: 'Classement richesse',
+      reputation: 'Classement réputation',
+    };
+
+    const rows = await Profile.find({ guildId }).sort(sortMap[type] || sortMap.level).limit(10);
+    title = titleMap[type] || title;
+    lines = rows.map((profile, index) => `${medal(index)} ${profile.characterName} — ${labelMap[type](profile)}`);
   }
 
-  const sortMap = {
-    level: { level: -1, xp: -1 },
-    power: { powerLevel: -1 },
-    jewels: { jewels: -1 },
-    reputation: { reputation: -1 },
-  };
-
-  const labelMap = {
-    level: (profile) => `Niveau ${profile.level} · ${formatNumber(profile.xp)} XP`,
-    power: (profile) => `${formatNumber(profile.powerLevel)} · Rang ${profile.mageRank}`,
-    jewels: (profile) => `${formatNumber(profile.jewels)} Jewels`,
-    reputation: (profile) => `${profile.reputation} réputation`,
-  };
-
-  const titleMap = {
-    level: 'Classement niveau RP',
-    power: 'Classement puissance',
-    jewels: 'Classement richesse',
-    reputation: 'Classement réputation',
-  };
-
-  rows = await Profile.find({ guildId }).sort(sortMap[type] || sortMap.level).limit(10);
-  title = titleMap[type] || title;
-
-  const lines = rows.map((profile, index) => `${medal(index)} **${profile.characterName}** — ${labelMap[type](profile)}`);
+  const fileName = 'fairy-slayer-classement.png';
+  const attachment = await createPanelCanvas({
+    fileName,
+    variant: 'ranking',
+    section: 'Classement',
+    title,
+    subtitle: 'Classements par personnage RP, pas seulement par compte Discord.',
+    lines: lines.length ? lines : ['Aucun résultat pour l’instant.'],
+    footer: 'Utilise les boutons sous le Canvas pour changer de classement.',
+  });
 
   return {
-    embeds: [new EmbedBuilder()
-      .setColor(0xffdf91)
-      .setTitle(`🏆 Fairy Slayer — ${title}`)
-      .setDescription(lines.length ? lines.join('\n') : 'Aucun profil trouvé pour l’instant.')],
+    embeds: [createCanvasEmbed(fileName)],
     components: getRankingRows(type),
+    files: [attachment],
   };
 }
 
