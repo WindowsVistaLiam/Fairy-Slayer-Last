@@ -351,34 +351,39 @@ function drawEmptyAvatarPlaceholder(ctx, x, y, w, h) {
   drawCenteredText(ctx, 'Utilise Modifier l’image', x, y + 245, w, 18, '#cec6f6', 'regular');
 }
 
+function getShortSlotName(item, fallback) {
+  if (!item) return fallback;
+  return truncateText(item.name, 21);
+}
+
 async function getEquippedProfileItems(profile) {
   if (!profile?._id) {
     return {
-      equipment: 'Aucun équipement',
-      lacrima: 'Aucune lacrima',
+      arme: 'Aucune',
+      tenue: 'Aucune',
+      accessoire: 'Aucun',
+      lacrima: 'Aucune',
     };
   }
 
   try {
     const summary = await getInventorySummary(profile._id);
-
-    const equippedEquipment = summary.equippedItems.find((item) => item.type === 'equipement');
-    const equippedLacrima = summary.equippedItems.find((item) => item.type === 'lacrima');
+    const slots = summary.equippedSlots || {};
 
     return {
-      equipment: equippedEquipment
-        ? truncateText(equippedEquipment.name, 34)
-        : 'Aucun équipement',
-      lacrima: equippedLacrima
-        ? truncateText(equippedLacrima.name, 34)
-        : 'Aucune lacrima',
+      arme: getShortSlotName(slots.arme, 'Aucune'),
+      tenue: getShortSlotName(slots.tenue, 'Aucune'),
+      accessoire: getShortSlotName(slots.accessoire, 'Aucun'),
+      lacrima: getShortSlotName(slots.lacrima, 'Aucune'),
     };
   } catch (error) {
     console.warn('⚠️ Impossible de récupérer les objets équipés du profil :', error.message);
 
     return {
-      equipment: 'Équipement indisponible',
-      lacrima: 'Lacrima indisponible',
+      arme: 'Indisponible',
+      tenue: 'Indisponible',
+      accessoire: 'Indisponible',
+      lacrima: 'Indisponible',
     };
   }
 }
@@ -570,10 +575,10 @@ async function createProfileCanvas(profile, discordUser) {
 
   drawText(
     ctx,
-    `Équipement : ${equippedItems.equipment}`,
+    `Arme : ${equippedItems.arme}   |   Tenue : ${equippedItems.tenue}`,
     122,
     715,
-    14,
+    13,
     '#ffcf63',
     'bold',
     675,
@@ -581,10 +586,10 @@ async function createProfileCanvas(profile, discordUser) {
 
   drawText(
     ctx,
-    `Lacrima : ${equippedItems.lacrima}`,
+    `Accessoire : ${equippedItems.accessoire}   |   Lacrima : ${equippedItems.lacrima}`,
     122,
     733,
-    14,
+    13,
     '#3bd6ff',
     'bold',
     675,

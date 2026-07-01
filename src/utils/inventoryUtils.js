@@ -4,6 +4,8 @@ const {
   getItemById,
   getRarityLabel,
   getTypeLabel,
+  getEquipSlotLabel,
+  getItemEquipSlot,
 } = require('../data/items');
 
 async function getOrCreateInventory(profileId) {
@@ -33,6 +35,7 @@ async function addItemToInventory(profileId, itemId, quantity = 1) {
     });
   }
 
+  inventory.markModified('items');
   await inventory.save();
 
   return inventory;
@@ -52,19 +55,21 @@ async function removeItemFromInventory(profileId, itemId, quantity = 1) {
     inventory.items = inventory.items.filter((item) => item.itemId !== itemId);
   }
 
+  inventory.markModified('items');
   await inventory.save();
 
   return true;
 }
 
 function isEquipableItem(item) {
-  return item?.type === 'equipement' || item?.type === 'lacrima';
+  return Boolean(getItemEquipSlot(item));
 }
 
 async function equipItemInInventory(profileId, itemId) {
   const inventory = await getOrCreateInventory(profileId);
   const entry = inventory.items.find((item) => item.itemId === itemId);
   const item = getItemById(itemId);
+  const slot = getItemEquipSlot(item);
 
   if (!item) {
     return {
@@ -80,7 +85,7 @@ async function equipItemInInventory(profileId, itemId) {
     };
   }
 
-  if (!isEquipableItem(item)) {
+  if (!slot) {
     return {
       success: false,
       reason: `${item.name} ne peut pas être équipé.`,
@@ -89,19 +94,23 @@ async function equipItemInInventory(profileId, itemId) {
 
   for (const inventoryItem of inventory.items) {
     const catalogItem = getItemById(inventoryItem.itemId);
+    const catalogSlot = getItemEquipSlot(catalogItem);
 
-    if (catalogItem?.type === item.type) {
+    if (catalogSlot === slot) {
       inventoryItem.equipped = false;
     }
   }
 
   entry.equipped = true;
 
+  inventory.markModified('items');
   await inventory.save();
 
   return {
     success: true,
     item,
+    slot,
+    slotLabel: getEquipSlotLabel(slot),
     inventory,
   };
 }
@@ -110,6 +119,7 @@ async function unequipItemInInventory(profileId, itemId) {
   const inventory = await getOrCreateInventory(profileId);
   const entry = inventory.items.find((item) => item.itemId === itemId);
   const item = getItemById(itemId);
+  const slot = getItemEquipSlot(item);
 
   if (!item) {
     return {
@@ -125,7 +135,7 @@ async function unequipItemInInventory(profileId, itemId) {
     };
   }
 
-  if (!isEquipableItem(item)) {
+  if (!slot) {
     return {
       success: false,
       reason: `${item.name} ne peut pas être déséquipé.`,
@@ -134,11 +144,14 @@ async function unequipItemInInventory(profileId, itemId) {
 
   entry.equipped = false;
 
+  inventory.markModified('items');
   await inventory.save();
 
   return {
     success: true,
     item,
+    slot,
+    slotLabel: getEquipSlotLabel(slot),
     inventory,
   };
 }
@@ -152,8 +165,12 @@ async function getInventoryDetails(profileId) {
 
       if (!item) return null;
 
+      const equipSlot = getItemEquipSlot(item);
+
       return {
         ...item,
+        equipSlot,
+        equipSlotLabel: getEquipSlotLabel(equipSlot),
         quantity: entry.quantity,
         equipped: Boolean(entry.equipped),
       };
@@ -174,12 +191,20 @@ async function getInventorySummary(profileId) {
 
   const equippedItems = items.filter((item) => item.equipped);
 
+  const equippedSlots = {
+    arme: equippedItems.find((item) => item.equipSlot === 'arme') || null,
+    tenue: equippedItems.find((item) => item.equipSlot === 'tenue') || null,
+    accessoire: equippedItems.find((item) => item.equipSlot === 'accessoire') || null,
+    lacrima: equippedItems.find((item) => item.equipSlot === 'lacrima') || null,
+  };
+
   return {
     items,
     totalQuantity,
     totalValue,
     byType,
     equippedItems,
+    equippedSlots,
   };
 }
 
@@ -191,9 +216,10 @@ function formatInventoryLines(items, limit = 8) {
   }
 
   return items.slice(0, limit).map((item) => {
+    const slotText = item.equipSlot ? ` - ${getEquipSlotLabel(item.equipSlot)}` : '';
     const equippedText = item.equipped ? ' - ÉQUIPÉ' : '';
 
-    return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - revente ${item.sellPrice} Jewels${equippedText}`;
+    return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)} - revente ${item.sellPrice} Jewels${equippedText}`;
   });
 }
 
