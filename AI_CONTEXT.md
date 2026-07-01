@@ -48,7 +48,7 @@ Le `README.md` sert de référence fonctionnelle et de source d’idées. Le cod
 - Page `/profil` → Équipement dédiée : quatre slots, bonus et puissance totale.
 - Panneaux grand Canvas adaptatifs : hauteur dynamique, douze lignes visibles et résumé du surplus.
 - Inspection détaillée d’un profil depuis `/admin`, en lecture seule.
-- Gacha Fairy Tail avec 299 cartes, cinq raretés, tirages simple/multiple/gratuit et paiement en fragments.
+- Gacha Fairy Tail avec 299 cartes, cinq raretés, un tirage gratuit toutes les deux heures et des achats simple/multiple en fragments.
 - Les 34 cartes originales gardent leurs IDs ; 60 personnages reçoivent quatre éditions générées et 25 ont une édition Mythique supplémentaire.
 - Images configurables dans `src/data/fairyTailCardImages.js`, soit par `cardId`, soit par `characterId` pour toutes les variantes.
 - Le Canvas charge les liens HTTP(S) avec cache, limite de 10 Mo, timeout de 5 secondes et fallback sur les initiales.
@@ -58,7 +58,12 @@ Le `README.md` sert de référence fonctionnelle et de source d’idées. Le cod
 - Pity persistant : Épique à 10, Légendaire à 50 et Mythique à 100.
 - Doublons convertis automatiquement en fragments selon la rareté.
 - Collection et catalogue paginés avec recherche et fiches détaillées en grand Canvas.
-- Cartes, fragments et pity liés au compte Discord et au serveur ; les tirages en Joyaux débitent le profil actif.
+- Cartes, fragments et pity liés au compte Discord et au serveur ; le gacha n’utilise jamais les Joyaux RP.
+- Coûts gacha : 100 fragments pour une carte ou 900 fragments pour dix cartes.
+- `/daily` propose Expédition, Enquête et Raid risqué avec cooldown MongoDB de 24 heures et récompenses/pénalités en fragments.
+- `/combat pve` utilise une carte possédée contre une carte de même rareté, avec cooldown de 30 minutes.
+- `/combat pvp` crée un défi public accept/refus, utilise la meilleure carte du défenseur et transfère jusqu’à 50 fragments.
+- `/combat stats` et l’inspection admin affichent les victoires, défaites et mouvements de fragments.
 
 ## Configuration serveur
 
@@ -76,23 +81,20 @@ La configuration complète est stockée dans `GuildConfig` et administrée depui
 
 ## État du travail en cours
 
-Le système gacha Fairy Tail est présent dans le worktree mais n’est pas encore commité.
+Les systèmes Daily, combat PvE/PvP et la nouvelle économie gacha exclusivement en fragments sont présents dans le worktree mais ne sont pas encore commités.
 
 Fichiers de code concernés :
 
-- `src/canvas/gachaCanvas.js`
-- `src/canvas/panelCanvas.js`
-- `src/commands/cartes.js`
-- `src/commands/collection.js`
-- `src/commands/gacha.js`
-- `src/data/fairyTailCards.js`
-- `src/data/fairyTailCardImages.js`
+- `src/commands/combat.js`
+- `src/commands/daily.js`
 - `src/features/admin/adminHub.js`
+- `src/features/combat/combatHub.js`
+- `src/features/daily/dailyHub.js`
 - `src/features/gacha/gachaHub.js`
 - `src/interactions/router.js`
-- `src/models/GachaAccount.js`
-- `src/models/GachaCard.js`
-- `package.json`
+- `src/models/CombatSession.js`
+- `src/models/CombatStats.js`
+- `src/models/DailyState.js`
 - `src/utils/gacha.js`
 - `README.md`
 - `AI_CONTEXT.md`

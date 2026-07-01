@@ -8,6 +8,7 @@ const missionHub = require('../features/missions/missionHub');
 const relationHub = require('../features/relations/relationHub');
 const rumorHub = require('../features/rumors/rumorHub');
 const gachaHub = require('../features/gacha/gachaHub');
+const combatHub = require('../features/combat/combatHub');
 
 const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -126,6 +127,7 @@ async function handleComponentInteraction(interaction) {
 
   // Gacha et collection de cartes
   if (id.startsWith('gacha:')) return gachaHub.handleGachaComponent(interaction);
+  if (id.startsWith('combat:')) return combatHub.handleCombatComponent(interaction);
 
   return safeEphemeralReply(interaction, `Interaction inconnue : \`${id}\``);
 }

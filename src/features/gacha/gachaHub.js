@@ -9,15 +9,13 @@ const {
 
 const GachaCard = require('../../models/GachaCard');
 const { FAIRY_TAIL_CARDS, RARITY_ORDER, getCardById } = require('../../data/fairyTailCards');
-const { getActiveProfile } = require('../../utils/activeProfile');
 const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
 const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { createGachaResultCanvas } = require('../../canvas/gachaCanvas');
 const { formatNumber } = require('../../utils/format');
 const {
-  SINGLE_DRAW_COST,
-  TEN_DRAW_COST,
-  FRAGMENT_DRAW_COST,
+  FRAGMENT_SINGLE_COST,
+  FRAGMENT_TEN_COST,
   getOrCreateGachaAccount,
   getFreeDrawRemainingMs,
   formatRemainingTime,
@@ -57,7 +55,7 @@ async function respond(interaction, payload, ephemeral = true) {
   });
 }
 
-function getHomeRows({ freeAvailable, canSingle, canTen, canFragment }) {
+function getHomeRows({ freeAvailable, canSingle, canTen }) {
   return [
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
@@ -67,25 +65,19 @@ function getHomeRows({ freeAvailable, canSingle, canTen, canFragment }) {
         .setStyle(ButtonStyle.Success)
         .setDisabled(!freeAvailable),
       new ButtonBuilder()
-        .setCustomId('gacha:pull:joyaux_single')
-        .setLabel(`1 carte — ${SINGLE_DRAW_COST}`)
-        .setEmoji('💎')
+        .setCustomId('gacha:pull:fragments_single')
+        .setLabel(`1 carte — ${FRAGMENT_SINGLE_COST} fragments`)
+        .setEmoji('🧩')
         .setStyle(ButtonStyle.Primary)
         .setDisabled(!canSingle),
       new ButtonBuilder()
-        .setCustomId('gacha:pull:joyaux_ten')
-        .setLabel(`10 cartes — ${TEN_DRAW_COST}`)
+        .setCustomId('gacha:pull:fragments_ten')
+        .setLabel(`10 cartes — ${FRAGMENT_TEN_COST} fragments`)
         .setEmoji('✨')
         .setStyle(ButtonStyle.Primary)
         .setDisabled(!canTen),
     ),
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('gacha:pull:fragments')
-        .setLabel(`1 carte — ${FRAGMENT_DRAW_COST} fragments`)
-        .setEmoji('🧩')
-        .setStyle(ButtonStyle.Secondary)
-        .setDisabled(!canFragment),
       new ButtonBuilder()
         .setCustomId('gacha:collection:self:0')
         .setLabel('Ma collection')
@@ -106,13 +98,11 @@ function getHomeRows({ freeAvailable, canSingle, canTen, canFragment }) {
 }
 
 async function buildHomePayload(interaction) {
-  const [account, profile, ownedCount] = await Promise.all([
+  const [account, ownedCount] = await Promise.all([
     getOrCreateGachaAccount(interaction.user.id, interaction.guildId),
-    getActiveProfile(interaction.user.id, interaction.guildId),
     GachaCard.countDocuments({ userId: interaction.user.id, guildId: interaction.guildId }),
   ]);
   const freeRemaining = getFreeDrawRemainingMs(account);
-  const joyaux = Number(profile?.jewels || 0);
   const attachment = await createPanelCanvas({
     fileName: 'fairy-slayer-gacha-hub.png',
     variant: 'gacha',
@@ -123,7 +113,7 @@ async function buildHomePayload(interaction) {
       { label: 'Collection', value: `${ownedCount}/${FAIRY_TAIL_CARDS.length}` },
       { label: 'Fragments', value: formatNumber(account.fragments) },
       { label: 'Tirages', value: formatNumber(account.totalPulls) },
-      { label: 'Joyaux actifs', value: profile ? formatNumber(joyaux) : 'Aucun profil' },
+      { label: 'Prochain gratuit', value: formatRemainingTime(freeRemaining) },
     ],
     lines: [
       `Tirage gratuit : ${formatRemainingTime(freeRemaining)}`,
@@ -131,6 +121,7 @@ async function buildHomePayload(interaction) {
       `Pity Mythique : ${account.pityMythic}/100`,
       'Chaque doublon est automatiquement transformé en fragments.',
       'Le tirage de 10 cartes garantit au minimum une Épique grâce au pity.',
+      'Les Joyaux RP ne sont jamais utilisés par le gacha.',
     ],
     footer: 'Les cartes appartiennent au compte Discord sur ce serveur, pas à un personnage particulier.',
   });
@@ -138,9 +129,8 @@ async function buildHomePayload(interaction) {
     attachment,
     components: getHomeRows({
       freeAvailable: freeRemaining <= 0,
-      canSingle: Boolean(profile && joyaux >= SINGLE_DRAW_COST),
-      canTen: Boolean(profile && joyaux >= TEN_DRAW_COST),
-      canFragment: Number(account.fragments || 0) >= FRAGMENT_DRAW_COST,
+      canSingle: Number(account.fragments || 0) >= FRAGMENT_SINGLE_COST,
+      canTen: Number(account.fragments || 0) >= FRAGMENT_TEN_COST,
     }),
   });
 }
@@ -341,7 +331,8 @@ async function showGachaInfo(interaction) {
       'Légendaire : 3,5 % — doublon converti en 150 fragments.',
       'Mythique : 0,5 % — doublon converti en 500 fragments.',
       'Pity : Épique au 10e tirage, Légendaire au 50e, Mythique au 100e.',
-      `Coûts : ${SINGLE_DRAW_COST} Joyaux l’unité, ${TEN_DRAW_COST} Joyaux les dix, ${FRAGMENT_DRAW_COST} fragments l’unité.`,
+      `Coûts : ${FRAGMENT_SINGLE_COST} fragments l’unité ou ${FRAGMENT_TEN_COST} fragments les dix.`,
+      'Les Joyaux du RP et de la boutique ne sont jamais débités.',
       'Une carte Épique ou supérieure remet aussi le pity Épique à zéro.',
     ],
     footer: 'Le pity est conservé entre les sessions et partagé par tous tes profils du serveur.',

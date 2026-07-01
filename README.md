@@ -11,6 +11,8 @@ Commandes principales :
 - `/gacha` : portail d’invocation Fairy Tail, tirages, pity et fragments.
 - `/collection` : collection personnelle ou collection d’un autre joueur.
 - `/cartes` : catalogue filtrable des cartes disponibles.
+- `/daily` : activité quotidienne rapportant des fragments avec plusieurs niveaux de risque.
+- `/combat` : combats de cartes PvE, défis PvP et statistiques.
 
 ## Fonctionnalités
 
@@ -32,22 +34,25 @@ Commandes principales :
 - Panneaux Canvas adaptatifs aux contenus longs.
 - Inspection détaillée d’un profil depuis `/admin`, sans modification des données.
 - Gacha Fairy Tail persistant avec 299 cartes et cinq raretés.
-- Tirage gratuit toutes les deux heures, tirages en Joyaux et tirage en fragments.
+- Tirage gratuit toutes les deux heures et tirages supplémentaires exclusivement en fragments.
 - Pity garanti aux 10e, 50e et 100e tirages.
 - Doublons automatiquement convertis en fragments réutilisables.
 - Collection, catalogue, recherche, pagination et fiches de cartes en grand Canvas.
 - Images de cartes configurables par URL, avec cache, délai maximal et initiales de secours.
+- Daily Fairy Tail : Expédition, Enquête ou Raid risqué, avec cooldown persistant de 24 heures.
+- Combat PvE toutes les 30 minutes avec adversaire de même rareté et récompenses en fragments.
+- Défis PvP acceptables/refusables, transfert plafonné à 50 fragments et statistiques persistantes.
 
 ## Gacha Fairy Tail
 
-Le gacha appartient au compte Discord sur le serveur. Les Joyaux dépensés proviennent du profil RP actif, tandis que les cartes, fragments et pity sont partagés entre tous les profils du joueur.
+Le gacha appartient au compte Discord sur le serveur. Il possède sa propre économie en fragments, entièrement séparée des Joyaux du RP et de la boutique.
 
 - Tirage gratuit : une carte toutes les deux heures.
-- Tirage simple : 250 Joyaux.
-- Tirage multiple : 10 cartes pour 2 250 Joyaux.
-- Tirage fragments : une carte pour 100 fragments.
+- Tirage simple supplémentaire : une carte pour 100 fragments.
+- Tirage multiple supplémentaire : 10 cartes pour 900 fragments.
 - Probabilités : 60 % Commune, 27 % Rare, 9 % Épique, 3,5 % Légendaire et 0,5 % Mythique.
 - Garanties : Épique au 10e tirage sans Épique, Légendaire au 50e sans Légendaire et Mythique au 100e sans Mythique.
+- Les Joyaux des profils ne sont jamais débités par un tirage gacha.
 
 ### Ajouter les images des cartes
 
@@ -64,6 +69,17 @@ const CHARACTER_IMAGE_URLS = {
 ```
 
 `CARD_IMAGE_URLS` personnalise une carte précise. `CHARACTER_IMAGE_URLS` applique la même image à toutes les variantes d’un personnage, sauf lorsqu’une image spécifique existe. Les liens doivent pointer directement vers une image publique de 10 Mo maximum. Si le lien échoue, le Canvas affiche automatiquement les initiales.
+
+## Daily et combats
+
+- `/daily expedition` : récompense stable, sans perte possible.
+- `/daily enquete` : récompense supérieure, sans perte possible.
+- `/daily raid` : gain important, mais risque de perdre quelques fragments.
+- `/combat pve [carte]` : combat contre une carte du bot ; la meilleure carte est choisie si le champ est vide.
+- `/combat pvp adversaire [carte]` : défi public que l’adversaire peut accepter ou refuser.
+- `/combat stats` : bilan des victoires, défaites et fragments gagnés/perdus.
+
+Le PvP utilise automatiquement la meilleure carte du défenseur. Le perdant transfère jusqu’à 50 fragments selon son solde disponible ; aucun compte ne peut devenir négatif.
 
 ## Configuration depuis Discord
 

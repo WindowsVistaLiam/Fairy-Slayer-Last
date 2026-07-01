@@ -13,6 +13,7 @@ const Profile = require('../../models/Profile');
 const ReputationLog = require('../../models/ReputationLog');
 const GachaAccount = require('../../models/GachaAccount');
 const GachaCard = require('../../models/GachaCard');
+const CombatStats = require('../../models/CombatStats');
 
 const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { normalizeMageRank } = require('../../utils/ranks');
@@ -438,10 +439,11 @@ async function handleInspectProfileModal(interaction) {
       flags: MessageFlags.Ephemeral,
     });
   }
-  const [items, gachaAccount, gachaCards] = await Promise.all([
+  const [items, gachaAccount, gachaCards, combatStats] = await Promise.all([
     getInventoryDetails(profile._id),
     GachaAccount.findOne({ userId: profile.userId, guildId: interaction.guildId }).lean(),
     GachaCard.countDocuments({ userId: profile.userId, guildId: interaction.guildId }),
+    CombatStats.findOne({ userId: profile.userId, guildId: interaction.guildId }).lean(),
   ]);
   const equipped = items.filter((item) => item.equipped);
   const equipmentBonus = equipped.reduce((total, item) => total + Number(item.powerBonus || 0), 0);
@@ -452,6 +454,7 @@ async function handleInspectProfileModal(interaction) {
     `Joyaux : ${formatNumber(profile.jewels)} — Réputation : ${profile.reputation}`,
     `Inventaire : ${items.reduce((total, item) => total + item.quantity, 0)} objet(s) — ${equipped.length}/4 équipé(s)`,
     `Gacha : ${gachaCards}/${FAIRY_TAIL_CARDS.length} cartes — ${formatNumber(gachaAccount?.fragments || 0)} fragments — ${formatNumber(gachaAccount?.totalPulls || 0)} tirages`,
+    `Combats : PvE ${combatStats?.pveWins || 0}V/${combatStats?.pveLosses || 0}D — PvP ${combatStats?.pvpWins || 0}V/${combatStats?.pvpLosses || 0}D`,
     ...equipped.map((item) => `${item.equipSlotLabel} : ${item.name} (+${formatNumber(item.powerBonus || 0)})`),
   ];
   const attachment = await createPanelCanvas({

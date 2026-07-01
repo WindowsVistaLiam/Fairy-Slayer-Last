@@ -1,7 +1,5 @@
 const GachaAccount = require('../models/GachaAccount');
 const GachaCard = require('../models/GachaCard');
-const Profile = require('../models/Profile');
-const { getActiveProfile } = require('./activeProfile');
 const {
   FAIRY_TAIL_CARDS,
   RARITIES,
@@ -10,9 +8,8 @@ const {
 } = require('../data/fairyTailCards');
 
 const FREE_DRAW_COOLDOWN_MS = 2 * 60 * 60 * 1000;
-const SINGLE_DRAW_COST = 250;
-const TEN_DRAW_COST = 2250;
-const FRAGMENT_DRAW_COST = 100;
+const FRAGMENT_SINGLE_COST = 100;
+const FRAGMENT_TEN_COST = 900;
 
 const RARITY_WEIGHTS = {
   common: 6000,
@@ -28,6 +25,54 @@ async function getOrCreateGachaAccount(userId, guildId) {
     { $setOnInsert: { userId, guildId } },
     { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
   );
+}
+
+async function addFragments(userId, guildId, amount) {
+  const safeAmount = Math.max(0, Math.floor(Number(amount) || 0));
+  return GachaAccount.findOneAndUpdate(
+    { userId, guildId },
+    {
+      $setOnInsert: { userId, guildId },
+      $inc: { fragments: safeAmount },
+    },
+    { returnDocument: 'after', upsert: true, setDefaultsOnInsert: true },
+  );
+}
+
+async function removeFragments(userId, guildId, amount) {
+  const account = await getOrCreateGachaAccount(userId, guildId);
+  const requested = Math.max(0, Math.floor(Number(amount) || 0));
+  if (!requested) return { account, removed: 0 };
+  const fullRemoval = await GachaAccount.findOneAndUpdate(
+    { _id: account._id, fragments: { $gte: requested } },
+    { $inc: { fragments: -requested } },
+    { returnDocument: 'after' },
+  );
+  if (fullRemoval) return { account: fullRemoval, removed: requested };
+
+  const latest = await GachaAccount.findById(account._id);
+  const available = Math.max(0, Number(latest?.fragments || 0));
+  if (!available) return { account: latest || account, removed: 0 };
+  const partialRemoval = await GachaAccount.findOneAndUpdate(
+    { _id: account._id, fragments: available },
+    { $inc: { fragments: -available } },
+    { returnDocument: 'after' },
+  );
+  if (!partialRemoval) return removeFragments(userId, guildId, requested);
+  return { account: partialRemoval, removed: available };
+}
+
+async function transferFragments(fromUserId, toUserId, guildId, amount) {
+  const removal = await removeFragments(fromUserId, guildId, amount);
+  if (removal.removed > 0) {
+    try {
+      await addFragments(toUserId, guildId, removal.removed);
+    } catch (error) {
+      await addFragments(fromUserId, guildId, removal.removed).catch(() => null);
+      throw error;
+    }
+  }
+  return removal.removed;
 }
 
 function getFreeDrawRemainingMs(account, now = Date.now()) {
@@ -112,38 +157,23 @@ async function chargeDraw({ userId, guildId, mode }) {
     return { ok: true, account: charged, paymentLabel: 'Tirage gratuit', refund: { type: 'free', accountId: charged._id } };
   }
 
-  if (mode === 'fragments') {
+  if (['fragments', 'fragments_single', 'fragments_ten'].includes(mode)) {
+    const count = mode === 'fragments_ten' ? 10 : 1;
+    const cost = count === 10 ? FRAGMENT_TEN_COST : FRAGMENT_SINGLE_COST;
     const charged = await GachaAccount.findOneAndUpdate(
-      { _id: account._id, fragments: { $gte: FRAGMENT_DRAW_COST } },
-      { $inc: { fragments: -FRAGMENT_DRAW_COST } },
+      { _id: account._id, fragments: { $gte: cost } },
+      { $inc: { fragments: -cost } },
       { returnDocument: 'after' },
     );
-    if (!charged) return { ok: false, reason: `Il faut ${FRAGMENT_DRAW_COST} fragments pour ce tirage.` };
+    if (!charged) return { ok: false, reason: `Il faut ${cost} fragments pour ce tirage de ${count} carte(s).` };
     return {
       ok: true,
       account: charged,
-      paymentLabel: `${FRAGMENT_DRAW_COST} fragments`,
-      refund: { type: 'fragments', accountId: charged._id, amount: FRAGMENT_DRAW_COST },
+      paymentLabel: `${cost} fragments — ${count} carte(s)`,
+      refund: { type: 'fragments', accountId: charged._id, amount: cost },
     };
   }
-
-  const count = mode === 'joyaux_ten' ? 10 : 1;
-  const cost = count === 10 ? TEN_DRAW_COST : SINGLE_DRAW_COST;
-  const activeProfile = await getActiveProfile(userId, guildId);
-  if (!activeProfile) return { ok: false, reason: 'Crée et active d’abord un personnage avec `/profil`.' };
-  const chargedProfile = await Profile.findOneAndUpdate(
-    { _id: activeProfile._id, userId, guildId, jewels: { $gte: cost } },
-    { $inc: { jewels: -cost } },
-    { returnDocument: 'after' },
-  );
-  if (!chargedProfile) return { ok: false, reason: `Il faut ${cost} Joyaux sur le profil actif.` };
-  return {
-    ok: true,
-    account,
-    profile: chargedProfile,
-    paymentLabel: `${cost} Joyaux — ${chargedProfile.characterName}`,
-    refund: { type: 'joyaux', profileId: chargedProfile._id, amount: cost },
-  };
+  return { ok: false, reason: 'Ce type de tirage n’existe plus. Rouvre `/gacha` pour actualiser le menu.' };
 }
 
 async function refundCharge(refund) {
@@ -152,8 +182,6 @@ async function refundCharge(refund) {
     await GachaAccount.findByIdAndUpdate(refund.accountId, { $set: { freeDrawAvailableAt: null } });
   } else if (refund.type === 'fragments') {
     await GachaAccount.findByIdAndUpdate(refund.accountId, { $inc: { fragments: refund.amount } });
-  } else if (refund.type === 'joyaux') {
-    await Profile.findByIdAndUpdate(refund.profileId, { $inc: { jewels: refund.amount } });
   }
 }
 
@@ -190,7 +218,7 @@ async function grantDrawnCards(userId, guildId, cards) {
 }
 
 async function performGachaDraw({ userId, guildId, mode, rng = Math.random }) {
-  const count = mode === 'joyaux_ten' ? 10 : 1;
+  const count = mode === 'fragments_ten' ? 10 : 1;
   const charge = await chargeDraw({ userId, guildId, mode });
   if (!charge.ok) return charge;
   try {
@@ -210,7 +238,6 @@ async function performGachaDraw({ userId, guildId, mode, rng = Math.random }) {
       ...granted,
       account,
       paymentLabel: charge.paymentLabel,
-      joyauxRemaining: charge.profile?.jewels,
     };
   } catch (error) {
     await refundCharge(charge.refund).catch(() => null);
@@ -227,10 +254,12 @@ async function getCollection(userId, guildId) {
 
 module.exports = {
   FREE_DRAW_COOLDOWN_MS,
-  SINGLE_DRAW_COST,
-  TEN_DRAW_COST,
-  FRAGMENT_DRAW_COST,
+  FRAGMENT_SINGLE_COST,
+  FRAGMENT_TEN_COST,
   getOrCreateGachaAccount,
+  addFragments,
+  removeFragments,
+  transferFragments,
   getFreeDrawRemainingMs,
   formatRemainingTime,
   pickWeightedRarity,
