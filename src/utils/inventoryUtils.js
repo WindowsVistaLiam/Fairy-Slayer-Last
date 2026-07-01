@@ -6,6 +6,7 @@ const {
   getTypeLabel,
   getEquipSlotLabel,
   getItemEquipSlot,
+  getItemPowerBonus,
 } = require('../data/items');
 
 async function getOrCreateInventory(profileId) {
@@ -111,6 +112,7 @@ async function equipItemInInventory(profileId, itemId) {
     item,
     slot,
     slotLabel: getEquipSlotLabel(slot),
+    powerBonus: getItemPowerBonus(item),
     inventory,
   };
 }
@@ -152,6 +154,7 @@ async function unequipItemInInventory(profileId, itemId) {
     item,
     slot,
     slotLabel: getEquipSlotLabel(slot),
+    powerBonus: getItemPowerBonus(item),
     inventory,
   };
 }
@@ -166,16 +169,36 @@ async function getInventoryDetails(profileId) {
       if (!item) return null;
 
       const equipSlot = getItemEquipSlot(item);
+      const powerBonus = getItemPowerBonus(item);
 
       return {
         ...item,
         equipSlot,
         equipSlotLabel: getEquipSlotLabel(equipSlot),
+        powerBonus,
         quantity: entry.quantity,
         equipped: Boolean(entry.equipped),
       };
     })
     .filter(Boolean);
+}
+
+function getEquippedSlotsFromItems(items) {
+  const equippedItems = items.filter((item) => item.equipped);
+
+  return {
+    arme: equippedItems.find((item) => item.equipSlot === 'arme') || null,
+    tenue: equippedItems.find((item) => item.equipSlot === 'tenue') || null,
+    accessoire: equippedItems.find((item) => item.equipSlot === 'accessoire') || null,
+    lacrima: equippedItems.find((item) => item.equipSlot === 'lacrima') || null,
+  };
+}
+
+function calculateEquippedPowerBonusFromSlots(equippedSlots) {
+  return Object.values(equippedSlots).reduce(
+    (total, item) => total + Number(item?.powerBonus || 0),
+    0,
+  );
 }
 
 async function getInventorySummary(profileId) {
@@ -190,13 +213,8 @@ async function getInventorySummary(profileId) {
   }, {});
 
   const equippedItems = items.filter((item) => item.equipped);
-
-  const equippedSlots = {
-    arme: equippedItems.find((item) => item.equipSlot === 'arme') || null,
-    tenue: equippedItems.find((item) => item.equipSlot === 'tenue') || null,
-    accessoire: equippedItems.find((item) => item.equipSlot === 'accessoire') || null,
-    lacrima: equippedItems.find((item) => item.equipSlot === 'lacrima') || null,
-  };
+  const equippedSlots = getEquippedSlotsFromItems(items);
+  const equippedPowerBonus = calculateEquippedPowerBonusFromSlots(equippedSlots);
 
   return {
     items,
@@ -205,6 +223,35 @@ async function getInventorySummary(profileId) {
     byType,
     equippedItems,
     equippedSlots,
+    equippedPowerBonus,
+  };
+}
+
+async function getProfilePowerWithEquipment(profile) {
+  const basePower = Number(profile?.powerLevel || 0);
+
+  if (!profile?._id) {
+    return {
+      basePower,
+      equipmentBonus: 0,
+      totalPower: basePower,
+      equippedSlots: {
+        arme: null,
+        tenue: null,
+        accessoire: null,
+        lacrima: null,
+      },
+    };
+  }
+
+  const summary = await getInventorySummary(profile._id);
+  const equipmentBonus = Number(summary.equippedPowerBonus || 0);
+
+  return {
+    basePower,
+    equipmentBonus,
+    totalPower: basePower + equipmentBonus,
+    equippedSlots: summary.equippedSlots,
   };
 }
 
@@ -217,9 +264,10 @@ function formatInventoryLines(items, limit = 8) {
 
   return items.slice(0, limit).map((item) => {
     const slotText = item.equipSlot ? ` - ${getEquipSlotLabel(item.equipSlot)}` : '';
+    const bonusText = item.powerBonus ? ` - +${item.powerBonus} puissance` : '';
     const equippedText = item.equipped ? ' - ÉQUIPÉ' : '';
 
-    return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)} - revente ${item.sellPrice} Jewels${equippedText}`;
+    return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - revente ${item.sellPrice} Jewels${equippedText}`;
   });
 }
 
@@ -231,5 +279,6 @@ module.exports = {
   unequipItemInInventory,
   getInventoryDetails,
   getInventorySummary,
+  getProfilePowerWithEquipment,
   formatInventoryLines,
 };

@@ -8,7 +8,7 @@ const { getXpNeeded } = require('../utils/xp');
 const { getRankLabel } = require('../utils/ranks');
 const { getReputationLabel } = require('../utils/reputation');
 const { formatNumber, truncateText } = require('../utils/format');
-const { getInventorySummary } = require('../utils/inventoryUtils');
+const { getInventorySummary, getProfilePowerWithEquipment } = require('../utils/inventoryUtils');
 
 const FONT_TITLE_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'crown_title', 'CROWNT.TTF');
 const FONT_REGULAR_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Marcellus', 'Marcellus-Regular.ttf');
@@ -353,7 +353,11 @@ function drawEmptyAvatarPlaceholder(ctx, x, y, w, h) {
 
 function getShortSlotName(item, fallback) {
   if (!item) return fallback;
-  return truncateText(item.name, 21);
+
+  const bonus = Number(item.powerBonus || 0);
+  const bonusText = bonus > 0 ? ` +${bonus}` : '';
+
+  return truncateText(`${item.name}${bonusText}`, 23);
 }
 
 async function getEquippedProfileItems(profile) {
@@ -363,6 +367,7 @@ async function getEquippedProfileItems(profile) {
       tenue: 'Aucune',
       accessoire: 'Aucun',
       lacrima: 'Aucune',
+      bonus: 0,
     };
   }
 
@@ -375,6 +380,7 @@ async function getEquippedProfileItems(profile) {
       tenue: getShortSlotName(slots.tenue, 'Aucune'),
       accessoire: getShortSlotName(slots.accessoire, 'Aucun'),
       lacrima: getShortSlotName(slots.lacrima, 'Aucune'),
+      bonus: Number(summary.equippedPowerBonus || 0),
     };
   } catch (error) {
     console.warn('⚠️ Impossible de récupérer les objets équipés du profil :', error.message);
@@ -384,6 +390,7 @@ async function getEquippedProfileItems(profile) {
       tenue: 'Indisponible',
       accessoire: 'Indisponible',
       lacrima: 'Indisponible',
+      bonus: 0,
     };
   }
 }
@@ -404,7 +411,10 @@ async function createProfileCanvas(profile, discordUser) {
   const age = profile?.age || 'Inconnu';
   const description = profile?.description || 'Aucune description renseignée.';
   const mageRank = profile?.mageRank || 'C';
-  const powerLevel = Number(profile?.powerLevel || 0);
+  const basePowerLevel = Number(profile?.powerLevel || 0);
+  const powerInfo = await getProfilePowerWithEquipment(profile);
+  const powerLevel = Number(powerInfo.totalPower || basePowerLevel);
+  const equipmentBonus = Number(powerInfo.equipmentBonus || 0);
   const level = Number(profile?.level || 1);
   const xp = Number(profile?.xp || 0);
   const jewels = Number(profile?.jewels || 0);
@@ -551,6 +561,12 @@ async function createProfileCanvas(profile, discordUser) {
 
   drawText(ctx, 'NIVEAU DE PUISSANCE', 496, 446, 18, '#cec6f6', 'bold');
   drawText(ctx, formatNumber(powerLevel), 496, 474, 42, '#ffcf63', 'bold');
+
+  const bonusLabel = equipmentBonus > 0
+    ? `Base ${formatNumber(basePowerLevel)} + équipement ${formatNumber(equipmentBonus)}`
+    : `Base ${formatNumber(basePowerLevel)}`;
+
+  drawText(ctx, bonusLabel, 496, 515, 14, '#cec6f6', 'bold');
   drawBar(ctx, 760, 482, 460, 26, Math.min(1, powerLevel / 10000), '#7f5cff', '#ff7a4e');
 
   roundRect(ctx, 470, 552, 790, 88, 22);

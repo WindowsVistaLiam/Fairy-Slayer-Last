@@ -8,6 +8,7 @@ const ITEMS = [
     rarity: 'commun',
     basePrice: 250,
     sellPrice: 90,
+    powerBonus: 0,
     requiredRank: 'C',
     requiredPower: 0,
     availableInShop: true,
@@ -21,6 +22,7 @@ const ITEMS = [
     rarity: 'commun',
     basePrice: 420,
     sellPrice: 160,
+    powerBonus: 0,
     requiredRank: 'C',
     requiredPower: 0,
     availableInShop: true,
@@ -34,6 +36,7 @@ const ITEMS = [
     rarity: 'commun',
     basePrice: 900,
     sellPrice: 320,
+    powerBonus: 80,
     requiredRank: 'C',
     requiredPower: 250,
     availableInShop: true,
@@ -47,6 +50,7 @@ const ITEMS = [
     rarity: 'rare',
     basePrice: 1450,
     sellPrice: 520,
+    powerBonus: 140,
     requiredRank: 'B',
     requiredPower: 500,
     availableInShop: true,
@@ -60,6 +64,7 @@ const ITEMS = [
     rarity: 'rare',
     basePrice: 1800,
     sellPrice: 700,
+    powerBonus: 120,
     requiredRank: 'B',
     requiredPower: 700,
     availableInShop: true,
@@ -73,6 +78,7 @@ const ITEMS = [
     rarity: 'epique',
     basePrice: 4200,
     sellPrice: 1500,
+    powerBonus: 260,
     requiredRank: 'A',
     requiredPower: 1600,
     availableInShop: true,
@@ -86,6 +92,7 @@ const ITEMS = [
     rarity: 'legendaire',
     basePrice: 12000,
     sellPrice: 4500,
+    powerBonus: 0,
     requiredRank: 'S',
     requiredPower: 3200,
     availableInShop: true,
@@ -153,6 +160,10 @@ function getItemEquipSlot(item) {
   return null;
 }
 
+function getItemPowerBonus(item) {
+  return Number(item?.powerBonus || 0);
+}
+
 module.exports = {
   ITEMS,
   getAllItems,
@@ -162,4 +173,5 @@ module.exports = {
   getTypeLabel,
   getEquipSlotLabel,
   getItemEquipSlot,
+  getItemPowerBonus,
 };
