@@ -21,6 +21,7 @@ const { createProfileCanvas } = require('../../canvas/profileCanvas');
 const { createPanelCanvas } = require('../../canvas/panelCanvas');
 
 const {
+  getOrCreateInventory,
   getInventorySummary,
   getInventoryDetails,
   removeItemFromInventory,
@@ -33,6 +34,9 @@ const {
   getItemById,
   getRarityLabel,
   getTypeLabel,
+  getEquipSlotLabel,
+  getItemEquipSlot,
+  getItemPowerBonus,
 } = require('../../data/items');
 
 const {
@@ -117,8 +121,6 @@ function getMainRows() {
     ),
   ];
 }
-
-
 
 function getNoProfileRows() {
   return [
@@ -219,9 +221,11 @@ async function replyOrUpdate(interaction, payload) {
 
 async function openProfileHub(interaction) {
   const acknowledged = await acknowledgeProfileInteraction(interaction);
-    if (!acknowledged) {
-      return null;
-      }
+
+  if (!acknowledged) {
+    return null;
+  }
+
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
   if (!profile) {
@@ -231,18 +235,17 @@ async function openProfileHub(interaction) {
       .setColor(0x7c5cff)
       .setTitle('Fairy Slayer — Aucun personnage actif')
       .setDescription(
-        'Tu n’as pas encore de personnage. Crée ton premier profil RP pour commencer à gagner de l’XP, des Jewels et utiliser les menus du bot.',
+        'Tu n’as pas encore de personnage.\nCrée ton premier profil RP pour commencer à gagner de l’XP, des Jewels et utiliser les menus du bot.',
       );
 
     const message = await replyOrUpdate(interaction, {
       embeds: [embed],
       components: rows,
       files: [],
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
 
     scheduleProfileMenuExpiration(message, rows);
-
     return message;
   }
 
@@ -254,11 +257,9 @@ async function openProfileHub(interaction) {
     embeds: [createCanvasEmbed(fileName)],
     components: rows,
     files: [attachment],
-    ephemeral: false,
   });
 
   scheduleProfileMenuExpiration(message, rows);
-
   return message;
 }
 
@@ -267,52 +268,56 @@ async function showCreateModal(interaction) {
     .setCustomId('profile:create:modal')
     .setTitle('Créer un personnage');
 
-  const nameInput = new TextInputBuilder()
-    .setCustomId('characterName')
-    .setLabel('Nom du personnage')
-    .setPlaceholder('Exemple : Kael Dragneel')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(80);
-
-  const ageInput = new TextInputBuilder()
-    .setCustomId('age')
-    .setLabel('Âge')
-    .setPlaceholder('Exemple : 22 ans')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setMaxLength(40);
-
-  const magicInput = new TextInputBuilder()
-    .setCustomId('magicType')
-    .setLabel('Magie')
-    .setPlaceholder('Exemple : Magie du feu stellaire')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(true)
-    .setMaxLength(120);
-
-  const rankInput = new TextInputBuilder()
-    .setCustomId('mageRank')
-    .setLabel('Mage de rang')
-    .setPlaceholder('C, B, A, S ou Sacré')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setMaxLength(10);
-
-  const powerInput = new TextInputBuilder()
-    .setCustomId('powerLevel')
-    .setLabel('Niveau de puissance')
-    .setPlaceholder('Exemple : 1450')
-    .setStyle(TextInputStyle.Short)
-    .setRequired(false)
-    .setMaxLength(8);
-
   modal.addComponents(
-    new ActionRowBuilder().addComponents(nameInput),
-    new ActionRowBuilder().addComponents(ageInput),
-    new ActionRowBuilder().addComponents(magicInput),
-    new ActionRowBuilder().addComponents(rankInput),
-    new ActionRowBuilder().addComponents(powerInput),
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('characterName')
+        .setLabel('Nom du personnage')
+        .setPlaceholder('Exemple : Kael Dragneel')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(80),
+    ),
+
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('age')
+        .setLabel('Âge')
+        .setPlaceholder('Exemple : 22 ans')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(40),
+    ),
+
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('magicType')
+        .setLabel('Magie')
+        .setPlaceholder('Exemple : Magie du feu stellaire')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(true)
+        .setMaxLength(120),
+    ),
+
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('mageRank')
+        .setLabel('Mage de rang')
+        .setPlaceholder('C, B, A, S ou Sacré')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(10),
+    ),
+
+    new ActionRowBuilder().addComponents(
+      new TextInputBuilder()
+        .setCustomId('powerLevel')
+        .setLabel('Niveau de puissance')
+        .setPlaceholder('Exemple : 1450')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setMaxLength(8),
+    ),
   );
 
   return interaction.showModal(modal);
@@ -324,8 +329,8 @@ async function handleCreateModal(interaction) {
 
   if (profileCount >= player.profileSlots) {
     return interaction.reply({
-      content: `Tu as déjà atteint ta limite de **${player.profileSlots} profil(s)**. Demande au staff d’augmenter tes slots si besoin.`,
-      ephemeral: true,
+      content: `Tu as déjà atteint ta limite de **${player.profileSlots} profil(s)**.\nDemande au staff d’augmenter tes slots si besoin.`,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
@@ -333,7 +338,6 @@ async function handleCreateModal(interaction) {
   const age = interaction.fields.getTextInputValue('age')?.trim() || 'Inconnu';
   const magicType = interaction.fields.getTextInputValue('magicType').trim();
   const mageRank = normalizeMageRank(interaction.fields.getTextInputValue('mageRank'));
-
   const rawPower = interaction.fields.getTextInputValue('powerLevel')?.trim();
   const powerLevel = Math.max(
     0,
@@ -350,11 +354,7 @@ async function handleCreateModal(interaction) {
     powerLevel,
   });
 
-  await Inventory.create({
-    profileId: profile._id,
-    items: [],
-  });
-
+  await getOrCreateInventory(profile._id);
   await setActiveProfile(interaction.user.id, interaction.guildId, profile._id);
 
   return openProfileHub(interaction);
@@ -386,7 +386,6 @@ async function showSwitchMenu(interaction) {
 
   const rows = [
     new ActionRowBuilder().addComponents(select),
-
     new ActionRowBuilder().addComponents(
       new ButtonBuilder()
         .setCustomId('profile:create')
@@ -416,15 +415,11 @@ async function showSwitchMenu(interaction) {
     footer: 'Utilise le menu déroulant sous le Canvas pour choisir ton personnage actif.',
   });
 
-  await interaction.update({
+  return interaction.update({
     embeds: [createCanvasEmbed(fileName)],
     components: rows,
     files: [attachment],
   });
-
-  scheduleProfileMenuExpiration(interaction.message, rows);
-
-  return interaction.message;
 }
 
 async function handleSwitchSelect(interaction) {
@@ -439,12 +434,11 @@ async function handleSwitchSelect(interaction) {
   if (!profile) {
     return interaction.reply({
       content: 'Ce profil est introuvable.',
-      ephemeral: true,
+      flags: MessageFlags.Ephemeral,
     });
   }
 
   await setActiveProfile(interaction.user.id, interaction.guildId, profile._id);
-
   return openProfileHub(interaction);
 }
 
@@ -582,21 +576,19 @@ async function handleImageModal(interaction) {
 
   let normalizedAvatarUrl = avatarUrl;
 
-if (avatarUrl) {
-  try {
-    const parsed = new URL(avatarUrl);
+  if (avatarUrl) {
+    try {
+      const parsed = new URL(avatarUrl);
 
-    if (parsed.hostname === 'media.discordapp.net') {
-      parsed.hostname = 'cdn.discordapp.com';
+      if (parsed.hostname === 'media.discordapp.net') {
+        parsed.hostname = 'cdn.discordapp.com';
+      }
+
+      normalizedAvatarUrl = parsed.toString();
+    } catch (_) {
+      normalizedAvatarUrl = avatarUrl;
     }
-
-    normalizedAvatarUrl = parsed.toString();
-  } catch (_) {
-    normalizedAvatarUrl = avatarUrl;
   }
-}
-
-profile.avatarUrl = normalizedAvatarUrl;
 
   profile.avatarUrl = normalizedAvatarUrl;
   await profile.save();
@@ -612,84 +604,6 @@ profile.avatarUrl = normalizedAvatarUrl;
   });
 }
 
-function getInventoryItemSelectRow(items) {
-  if (!items.length) return null;
-
-  const options = items.slice(0, 25).map((item) => (
-    new StringSelectMenuOptionBuilder()
-      .setLabel(item.name.slice(0, 100))
-      .setDescription(`x${item.quantity} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)}`.slice(0, 100))
-      .setValue(item.itemId)
-  ));
-
-  const select = new StringSelectMenuBuilder()
-    .setCustomId('profile:inventory:item')
-    .setPlaceholder('Voir le détail d’un objet')
-    .addOptions(options);
-
-  return new ActionRowBuilder().addComponents(select);
-}
-
-function getInventoryRowsWithSelect(items, activeCategory = 'all') {
-  const rows = [];
-
-  const selectRow = getInventoryItemSelectRow(items);
-
-  if (selectRow) {
-    rows.push(selectRow);
-  }
-
-  return [
-    ...rows,
-    ...getInventoryCategoryRows(activeCategory),
-  ];
-}
-
-function canUseInventoryItem(item) {
-  return item?.type === 'consommable';
-}
-
-function getItemUseText(item) {
-  const effects = {
-    potion_soin_mineure: 'Le personnage utilise une potion de soin mineure. L’effet peut être pris en compte dans la scène RP.',
-    potion_magique: 'Le personnage utilise une potion magique. Ses réserves magiques sont symboliquement restaurées.',
-  };
-
-  return effects[item.itemId] || `Le personnage utilise ${item.name}.`;
-}
-
-function getInventoryItemDetailRows(inventoryItems, item) {
-  const rows = [];
-
-  const selectRow = getInventoryItemSelectRow(inventoryItems);
-
-  if (selectRow) {
-    rows.push(selectRow);
-  }
-
-  const actionButtons = [
-    new ButtonBuilder()
-      .setCustomId('profile:inventory:all')
-      .setLabel('Retour inventaire')
-      .setEmoji('↩️')
-      .setStyle(ButtonStyle.Secondary),
-  ];
-
-  if (canUseInventoryItem(item)) {
-    actionButtons.unshift(
-      new ButtonBuilder()
-        .setCustomId(`profile:inventory:use:${item.itemId}`)
-        .setLabel('Utiliser 1')
-        .setEmoji('🧪')
-        .setStyle(ButtonStyle.Success),
-    );
-  }
-
-  rows.push(new ActionRowBuilder().addComponents(actionButtons));
-
-  return rows;
-}
-
 function getInventoryCategoryLabel(category = 'all') {
   const labels = {
     all: 'Tout l’inventaire',
@@ -701,68 +615,6 @@ function getInventoryCategoryLabel(category = 'all') {
   };
 
   return labels[category] || 'Tout l’inventaire';
-}
-
-function canEquipInventoryItem(item) {
-  return item?.type === 'equipement' || item?.type === 'lacrima';
-}
-
-function getEquipmentActionText(item, equipped) {
-  if (!canEquipInventoryItem(item)) {
-    return 'Action disponible : cet objet ne peut pas être équipé.';
-  }
-
-  return equipped
-    ? 'Action disponible : cet objet est équipé et peut être déséquipé.'
-    : 'Action disponible : cet objet peut être équipé.';
-}
-
-function getInventoryItemDetailRows(inventoryItems, item, ownedItem) {
-  const rows = [];
-
-  const selectRow = getInventoryItemSelectRow(inventoryItems);
-
-  if (selectRow) {
-    rows.push(selectRow);
-  }
-
-  const actionButtons = [];
-
-  if (canUseInventoryItem(item)) {
-    actionButtons.push(
-      new ButtonBuilder()
-        .setCustomId(`profile:inventory:use:${item.itemId}`)
-        .setLabel('Utiliser 1')
-        .setEmoji('🧪')
-        .setStyle(ButtonStyle.Success),
-    );
-  }
-
-  if (canEquipInventoryItem(item)) {
-    actionButtons.push(
-      new ButtonBuilder()
-        .setCustomId(
-          ownedItem?.equipped
-            ? `profile:inventory:unequip:${item.itemId}`
-            : `profile:inventory:equip:${item.itemId}`,
-        )
-        .setLabel(ownedItem?.equipped ? 'Déséquiper' : 'Équiper')
-        .setEmoji(ownedItem?.equipped ? '📤' : '🛡️')
-        .setStyle(ownedItem?.equipped ? ButtonStyle.Secondary : ButtonStyle.Success),
-    );
-  }
-
-  actionButtons.push(
-    new ButtonBuilder()
-      .setCustomId('profile:inventory:all')
-      .setLabel('Retour inventaire')
-      .setEmoji('↩️')
-      .setStyle(ButtonStyle.Secondary),
-  );
-
-  rows.push(new ActionRowBuilder().addComponents(actionButtons));
-
-  return rows;
 }
 
 function getInventoryCategoryRows(activeCategory = 'all') {
@@ -831,6 +683,115 @@ function countInventoryType(items, type) {
     .reduce((total, item) => total + Number(item.quantity || 0), 0);
 }
 
+function getInventoryItemSelectRow(items) {
+  if (!items.length) return null;
+
+  const options = items.slice(0, 25).map((item) => {
+    const bonus = Number(item.powerBonus || 0);
+    const bonusText = bonus > 0 ? ` - +${formatNumber(bonus)} puissance` : '';
+
+    return new StringSelectMenuOptionBuilder()
+      .setLabel(item.name.slice(0, 100))
+      .setDescription(`x${item.quantity} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)}${bonusText}`.slice(0, 100))
+      .setValue(item.itemId);
+  });
+
+  const select = new StringSelectMenuBuilder()
+    .setCustomId('profile:inventory:item')
+    .setPlaceholder('Voir le détail d’un objet')
+    .addOptions(options);
+
+  return new ActionRowBuilder().addComponents(select);
+}
+
+function getInventoryRowsWithSelect(items, activeCategory = 'all') {
+  const rows = [];
+  const selectRow = getInventoryItemSelectRow(items);
+
+  if (selectRow) {
+    rows.push(selectRow);
+  }
+
+  return [
+    ...rows,
+    ...getInventoryCategoryRows(activeCategory),
+  ];
+}
+
+function canUseInventoryItem(item) {
+  return item?.type === 'consommable';
+}
+
+function canEquipInventoryItem(item) {
+  return Boolean(getItemEquipSlot(item));
+}
+
+function getItemUseText(item) {
+  const effects = {
+    potion_soin_mineure: 'Le personnage utilise une potion de soin mineure. L’effet peut être pris en compte dans la scène RP.',
+    potion_magique: 'Le personnage utilise une potion magique. Ses réserves magiques sont symboliquement restaurées.',
+  };
+
+  return effects[item.itemId] || `Le personnage utilise ${item.name}.`;
+}
+
+function getEquipmentActionText(item, equipped) {
+  if (!canEquipInventoryItem(item)) {
+    return 'Action disponible : cet objet ne peut pas être équipé.';
+  }
+
+  return equipped
+    ? 'Action disponible : cet objet est équipé et peut être déséquipé.'
+    : 'Action disponible : cet objet peut être équipé.';
+}
+
+function getInventoryItemDetailRows(inventoryItems, item, ownedItem) {
+  const rows = [];
+  const selectRow = getInventoryItemSelectRow(inventoryItems);
+
+  if (selectRow) {
+    rows.push(selectRow);
+  }
+
+  const actionButtons = [];
+
+  if (canUseInventoryItem(item)) {
+    actionButtons.push(
+      new ButtonBuilder()
+        .setCustomId(`profile:inventory:use:${item.itemId}`)
+        .setLabel('Utiliser 1')
+        .setEmoji('🧪')
+        .setStyle(ButtonStyle.Success),
+    );
+  }
+
+  if (canEquipInventoryItem(item)) {
+    actionButtons.push(
+      new ButtonBuilder()
+        .setCustomId(
+          ownedItem?.equipped
+            ? `profile:inventory:unequip:${item.itemId}`
+            : `profile:inventory:equip:${item.itemId}`,
+        )
+        .setLabel(ownedItem?.equipped ? 'Déséquiper' : 'Équiper')
+        .setEmoji(ownedItem?.equipped ? '📤' : '🛡️')
+        .setStyle(ownedItem?.equipped ? ButtonStyle.Secondary : ButtonStyle.Success),
+    );
+  }
+
+  actionButtons.push(
+    new ButtonBuilder()
+      .setCustomId('profile:inventory:all')
+      .setLabel('Retour inventaire')
+      .setEmoji('↩️')
+      .setStyle(ButtonStyle.Secondary),
+  );
+
+  rows.push(new ActionRowBuilder().addComponents(actionButtons));
+
+  return rows;
+}
+
 async function showInventory(interaction, category = 'all') {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
@@ -862,7 +823,7 @@ async function showInventory(interaction, category = 'all') {
     subtitle: `${formatNumber(filteredQuantity)} objet(s) affiché(s) - valeur : ${formatNumber(filteredValue)} Jewels`,
     stats: [
       { label: 'Total', value: formatNumber(summary.totalQuantity) },
-      { label: 'Consommables', value: formatNumber(countInventoryType(summary.items, 'consommable')) },
+      { label: 'Bonus', value: `+${formatNumber(summary.equippedPowerBonus || 0)}` },
       { label: 'Équipements', value: formatNumber(countInventoryType(summary.items, 'equipement')) },
       { label: 'Lacrimas', value: formatNumber(countInventoryType(summary.items, 'lacrima')) },
     ],
@@ -904,6 +865,9 @@ async function showInventoryItem(interaction) {
     });
   }
 
+  const powerBonus = getItemPowerBonus(item);
+  const equipSlot = getItemEquipSlot(item);
+  const equipSlotLabel = getEquipSlotLabel(equipSlot);
   const fileName = 'fairy-slayer-objet.png';
 
   const attachment = await createPanelCanvas({
@@ -914,8 +878,8 @@ async function showInventoryItem(interaction) {
     subtitle: item.description,
     stats: [
       { label: 'Quantité', value: formatNumber(ownedItem.quantity) },
-      { label: 'Type', value: getTypeLabel(item.type) },
-      { label: 'Rareté', value: getRarityLabel(item.rarity) },
+      { label: 'Slot', value: equipSlotLabel },
+      { label: 'Bonus', value: powerBonus > 0 ? `+${formatNumber(powerBonus)}` : 'Aucun' },
       { label: 'Statut', value: ownedItem.equipped ? 'Équipé' : 'Non équipé' },
     ],
     lines: [
@@ -923,6 +887,8 @@ async function showInventoryItem(interaction) {
       `Description : ${item.description}`,
       `Type : ${getTypeLabel(item.type)}`,
       `Rareté : ${getRarityLabel(item.rarity)}`,
+      `Slot : ${equipSlotLabel}`,
+      `Bonus de puissance : ${powerBonus > 0 ? `+${formatNumber(powerBonus)}` : 'Aucun'}`,
       `Prix boutique : ${formatNumber(item.basePrice)} Jewels`,
       `Prix de revente : ${formatNumber(item.sellPrice)} Jewels`,
       `Rang requis : ${item.requiredRank || 'C'}`,
@@ -977,7 +943,6 @@ async function useInventoryItem(interaction) {
   const inventoryItems = await getInventoryDetails(profile._id);
   const remainingItem = inventoryItems.find((entry) => entry.itemId === item.itemId);
   const remainingQuantity = remainingItem?.quantity || 0;
-
   const fileName = 'fairy-slayer-objet-utilise.png';
 
   const attachment = await createPanelCanvas({
@@ -994,7 +959,7 @@ async function useInventoryItem(interaction) {
     ],
     lines: [
       `Objet utilisé : ${item.name}`,
-      `Quantité consommée : 1`,
+      'Quantité consommée : 1',
       `Quantité restante : ${formatNumber(remainingQuantity)}`,
       `Effet : ${getItemUseText(item)}`,
     ],
@@ -1027,7 +992,7 @@ async function equipInventoryItemAction(interaction) {
 
   const inventoryItems = await getInventoryDetails(profile._id);
   const ownedItem = inventoryItems.find((entry) => entry.itemId === result.item.itemId);
-
+  const powerBonus = Number(result.powerBonus || result.item.powerBonus || 0);
   const fileName = 'fairy-slayer-objet-equipe.png';
 
   const attachment = await createPanelCanvas({
@@ -1038,17 +1003,17 @@ async function equipInventoryItemAction(interaction) {
     subtitle: 'L’objet a été équipé avec succès.',
     stats: [
       { label: 'Statut', value: 'Équipé' },
-      { label: 'Type', value: getTypeLabel(result.item.type) },
-      { label: 'Rareté', value: getRarityLabel(result.item.rarity) },
+      { label: 'Slot', value: result.slotLabel || 'Équipement' },
+      { label: 'Bonus', value: powerBonus > 0 ? `+${formatNumber(powerBonus)}` : 'Aucun' },
       { label: 'Quantité', value: formatNumber(ownedItem?.quantity || 1) },
     ],
     lines: [
       `Objet équipé : ${result.item.name}`,
+      `Slot : ${result.slotLabel || 'Équipement'}`,
       `Type : ${getTypeLabel(result.item.type)}`,
       `Rareté : ${getRarityLabel(result.item.rarity)}`,
-      result.item.type === 'equipement'
-        ? 'Un autre équipement actif du même type a été automatiquement déséquipé.'
-        : 'Une autre lacrima active a été automatiquement déséquipée.',
+      `Bonus de puissance : ${powerBonus > 0 ? `+${formatNumber(powerBonus)}` : 'Aucun'}`,
+      `Un autre objet du slot ${result.slotLabel || 'correspondant'} a été automatiquement déséquipé.`,
     ],
     footer: 'Menu /profil - Équipement modifié',
   });
@@ -1079,7 +1044,7 @@ async function unequipInventoryItemAction(interaction) {
 
   const inventoryItems = await getInventoryDetails(profile._id);
   const ownedItem = inventoryItems.find((entry) => entry.itemId === result.item.itemId);
-
+  const powerBonus = Number(result.powerBonus || result.item.powerBonus || 0);
   const fileName = 'fairy-slayer-objet-desequipe.png';
 
   const attachment = await createPanelCanvas({
@@ -1090,14 +1055,16 @@ async function unequipInventoryItemAction(interaction) {
     subtitle: 'L’objet a été déséquipé avec succès.',
     stats: [
       { label: 'Statut', value: 'Non équipé' },
-      { label: 'Type', value: getTypeLabel(result.item.type) },
-      { label: 'Rareté', value: getRarityLabel(result.item.rarity) },
+      { label: 'Slot', value: result.slotLabel || 'Équipement' },
+      { label: 'Bonus retiré', value: powerBonus > 0 ? `-${formatNumber(powerBonus)}` : 'Aucun' },
       { label: 'Quantité', value: formatNumber(ownedItem?.quantity || 1) },
     ],
     lines: [
       `Objet déséquipé : ${result.item.name}`,
+      `Slot : ${result.slotLabel || 'Équipement'}`,
       `Type : ${getTypeLabel(result.item.type)}`,
       `Rareté : ${getRarityLabel(result.item.rarity)}`,
+      `Bonus de puissance retiré : ${powerBonus > 0 ? `-${formatNumber(powerBonus)}` : 'Aucun'}`,
       'L’objet reste dans ton inventaire.',
     ],
     footer: 'Menu /profil - Équipement modifié',
@@ -1117,20 +1084,15 @@ async function showMissions(interaction) {
     return openProfileHub(interaction);
   }
 
-  const active = await ProfileMission.countDocuments({
-    profileId: profile._id,
-    status: 'active',
-  });
+  const missions = await ProfileMission.find({ profileId: profile._id })
+    .sort({ updatedAt: -1 })
+    .limit(8);
 
-  const completed = await ProfileMission.countDocuments({
-    profileId: profile._id,
-    status: 'completed',
-  });
-
-  const failed = await ProfileMission.countDocuments({
-    profileId: profile._id,
-    status: 'failed',
-  });
+  const lines = missions.length
+    ? missions.map((mission) => (
+      `${mission.missionId} — ${mission.status}`
+    ))
+    : ['Aucune mission active ou terminée pour ce personnage.'];
 
   const fileName = 'fairy-slayer-missions.png';
 
@@ -1138,24 +1100,20 @@ async function showMissions(interaction) {
     fileName,
     variant: 'missions',
     section: `Missions — ${profile.characterName}`,
-    title: 'Tableau de missions',
-    subtitle: 'Suivi des missions du personnage actif.',
+    title: `${missions.length} mission(s) affichée(s)`,
+    subtitle: 'Les missions avancées arriveront dans une prochaine étape.',
     stats: [
-      { label: 'Actives', value: formatNumber(active) },
-      { label: 'Terminées', value: formatNumber(completed) },
-      { label: 'Échouées', value: formatNumber(failed) },
-      { label: 'Rang mage', value: profile.mageRank },
+      { label: 'Niveau', value: formatNumber(profile.level) },
+      { label: 'XP', value: formatNumber(profile.xp) },
+      { label: 'Rang', value: profile.mageRank },
+      { label: 'Jewels', value: formatNumber(profile.jewels) },
     ],
-    lines: [
-      'La V2/V3 ajoutera les missions disponibles, acceptées, validées par le staff et les récompenses.',
-      'Les prérequis pourront utiliser le rang de mage et le niveau de puissance.',
-      'Les récompenses pourront donner XP, Jewels, réputation et objets.',
-    ],
-    footer: 'Menu /profil · Missions du personnage actif',
+    lines,
+    footer: 'Menu /profil - Missions',
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0xffb347)],
+    embeds: [createCanvasEmbed(fileName, 0xffd166)],
     components: getMainRows(),
     files: [attachment],
   });
@@ -1168,17 +1126,20 @@ async function showRelations(interaction) {
     return openProfileHub(interaction);
   }
 
-  const relations = await Relation.find({
-    ownerProfileId: profile._id,
-  })
-    .limit(8)
-    .populate('targetProfileId');
+  const relations = await Relation.find({ ownerProfileId: profile._id })
+    .sort({ updatedAt: -1 })
+    .limit(8);
+
+  const targetIds = relations.map((relation) => relation.targetProfileId).filter(Boolean);
+  const targets = await Profile.find({ _id: { $in: targetIds } });
+  const targetById = new Map(targets.map((target) => [String(target._id), target]));
 
   const lines = relations.length
-    ? relations.map((relation) => (
-      `${relation.targetProfileId?.characterName || 'Personnage inconnu'} — ${relation.type} · confiance ${relation.trust}% · tension ${relation.tension}%`
-    ))
-    : ['Aucune relation renseignée pour l’instant.'];
+    ? relations.map((relation) => {
+      const target = targetById.get(String(relation.targetProfileId));
+      return `${target?.characterName || 'Personnage inconnu'} — ${relation.type} · confiance ${relation.trust} · tension ${relation.tension}`;
+    })
+    : ['Aucune relation enregistrée pour ce personnage.'];
 
   const fileName = 'fairy-slayer-relations.png';
 
@@ -1187,13 +1148,13 @@ async function showRelations(interaction) {
     variant: 'relations',
     section: `Relations — ${profile.characterName}`,
     title: `${relations.length} relation(s) affichée(s)`,
-    subtitle: 'Liens sociaux, alliances, rivalités et tensions RP.',
+    subtitle: 'Relations du personnage actif.',
     lines,
-    footer: 'Menu /profil · Relations du personnage actif',
+    footer: 'Menu /profil - Relations',
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0x64d2a6)],
+    embeds: [createCanvasEmbed(fileName, 0xffa94d)],
     components: getMainRows(),
     files: [attachment],
   });
@@ -1220,9 +1181,9 @@ async function showRumors(interaction) {
 
   const lines = rumors.length
     ? rumors.map((rumor) => (
-      `${rumor.type} · crédibilité ${rumor.credibility}% — ${truncateText(rumor.content, 110)}`
+      `${rumor.type.toUpperCase()} — ${rumor.content} · crédibilité ${rumor.credibility}%`
     ))
-    : ['Aucune rumeur active pour l’instant.'];
+    : ['Aucune rumeur active sur ce personnage.'];
 
   const fileName = 'fairy-slayer-rumeurs.png';
 
@@ -1231,9 +1192,9 @@ async function showRumors(interaction) {
     variant: 'rumors',
     section: `Rumeurs — ${profile.characterName}`,
     title: `${rumors.length} rumeur(s) active(s)`,
-    subtitle: 'Les rumeurs pourront influencer les prix, la réputation et les relations.',
+    subtitle: 'Les rumeurs peuvent influencer réputation et boutique.',
     lines,
-    footer: 'Menu /profil · Rumeurs actives du personnage actif',
+    footer: 'Menu /profil - Rumeurs',
   });
 
   return interaction.update({
@@ -1250,17 +1211,15 @@ async function showReputation(interaction) {
     return openProfileHub(interaction);
   }
 
-  const logs = await ReputationLog.find({
-    profileId: profile._id,
-  })
+  const logs = await ReputationLog.find({ profileId: profile._id })
     .sort({ createdAt: -1 })
-    .limit(5);
+    .limit(8);
 
   const lines = logs.length
     ? logs.map((log) => (
-      `${log.amount > 0 ? '+' : ''}${log.amount} — ${truncateText(log.reason, 90)}`
+      `${log.amount > 0 ? '+' : ''}${log.amount} — ${log.reason}`
     ))
-    : ['Aucun historique de réputation.'];
+    : ['Aucun historique de réputation pour ce personnage.'];
 
   const fileName = 'fairy-slayer-reputation.png';
 
@@ -1268,23 +1227,20 @@ async function showReputation(interaction) {
     fileName,
     variant: 'reputation',
     section: `Réputation — ${profile.characterName}`,
-    title: getReputationLabel(profile.reputation),
-    subtitle: 'La réputation influence les prix et la perception RP du personnage.',
+    title: `${profile.reputation} · ${getReputationLabel(profile.reputation)}`,
+    subtitle: 'La réputation influence le regard du monde et certains prix.',
     stats: [
-      { label: 'Score', value: String(profile.reputation) },
+      { label: 'Réputation', value: String(profile.reputation) },
       { label: 'Statut', value: getReputationLabel(profile.reputation) },
+      { label: 'Historique', value: formatNumber(logs.length) },
       { label: 'Rang', value: profile.mageRank },
-      { label: 'Puissance', value: formatNumber(profile.powerLevel) },
     ],
-    lines: [
-      'Derniers changements :',
-      ...lines,
-    ],
-    footer: 'Menu /profil · Réputation du personnage actif',
+    lines,
+    footer: 'Menu /profil - Réputation',
   });
 
   return interaction.update({
-    embeds: [createCanvasEmbed(fileName, 0xffdf91)],
+    embeds: [createCanvasEmbed(fileName, 0x7c5cff)],
     components: getMainRows(),
     files: [attachment],
   });
@@ -1301,12 +1257,12 @@ module.exports = {
   showImageModal,
   handleImageModal,
   showInventory,
-  showMissions,
-  showRelations,
-  showRumors,
-  showReputation,
   showInventoryItem,
   useInventoryItem,
   equipInventoryItemAction,
   unequipInventoryItemAction,
+  showMissions,
+  showRelations,
+  showRumors,
+  showReputation,
 };
