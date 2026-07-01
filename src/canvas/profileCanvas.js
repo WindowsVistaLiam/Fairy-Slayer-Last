@@ -1,5 +1,6 @@
 const path = require('node:path');
 const fs = require('node:fs');
+
 const { createCanvas, GlobalFonts, loadImage } = require('@napi-rs/canvas');
 const { AttachmentBuilder } = require('discord.js');
 
@@ -62,7 +63,6 @@ function setFont(ctx, size = 24, style = 'regular') {
 
   const family = getFontFamily(style);
 
-  // Les guillemets autour du nom de police sont importants pour @napi-rs/canvas.
   ctx.font = `${size}px "${family}"`;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
@@ -210,20 +210,26 @@ function buildImageCandidateUrls(url) {
 async function loadRemoteImage(url) {
   if (!url) return null;
 
-  try {
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Fairy-Slayer/1.0',
-      },
-    });
+  const candidates = buildImageCandidateUrls(url);
 
-    if (!response.ok) return null;
+  for (const candidate of candidates) {
+    try {
+      const response = await fetch(candidate, {
+        headers: {
+          'User-Agent': 'Fairy-Slayer/1.0',
+        },
+      });
 
-    const buffer = Buffer.from(await response.arrayBuffer());
-    return await loadImage(buffer);
-  } catch (_) {
-    return null;
+      if (!response.ok) continue;
+
+      const buffer = Buffer.from(await response.arrayBuffer());
+      return await loadImage(buffer);
+    } catch (_) {
+      // On tente l'URL candidate suivante.
+    }
   }
+
+  return null;
 }
 
 function drawGlow(ctx, x, y, radius, color, alpha = 0.35) {
@@ -260,6 +266,7 @@ function drawMagicCircle(ctx, x, y, radius, color = '#ffcf63') {
   ctx.stroke();
 
   ctx.beginPath();
+
   for (let i = 0; i < 6; i += 1) {
     const angle = (Math.PI * 2 * i) / 6 - Math.PI / 2;
     const px = Math.cos(angle) * radius * 0.72;
@@ -268,6 +275,7 @@ function drawMagicCircle(ctx, x, y, radius, color = '#ffcf63') {
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
   }
+
   ctx.closePath();
   ctx.stroke();
 
@@ -302,8 +310,8 @@ function drawInfoBox(ctx, label, value, x, y, w, h, accent = '#ffcf63') {
   ctx.fillStyle = accent;
   ctx.fill();
 
-  drawText(ctx, label, x + 20, y + 12, 15, '#cec6f6', 'bold');
-  drawText(ctx, value, x + 20, y + 36, 23, '#ffffff', 'bold', w - 34);
+  drawText(ctx, label, x + 20, y + 10, 14, '#cec6f6', 'bold');
+  drawText(ctx, value, x + 20, y + 35, 22, '#ffffff', 'bold', w - 34);
 
   ctx.restore();
 }
@@ -338,9 +346,9 @@ function drawEmptyAvatarPlaceholder(ctx, x, y, w, h) {
   ctx.fillStyle = fallback;
   ctx.fillRect(x, y, w, h);
 
-  drawCenteredText(ctx, 'Aucune image', x, y + 155, w, 28, '#ffffff', 'bold');
-  drawCenteredText(ctx, 'définie', x, y + 193, w, 28, '#ffffff', 'bold');
-  drawCenteredText(ctx, 'Utilise Modifier l’image', x, y + 255, w, 18, '#cec6f6', 'regular');
+  drawCenteredText(ctx, 'Aucune image', x, y + 145, w, 28, '#ffffff', 'bold');
+  drawCenteredText(ctx, 'définie', x, y + 183, w, 28, '#ffffff', 'bold');
+  drawCenteredText(ctx, 'Utilise Modifier l’image', x, y + 245, w, 18, '#cec6f6', 'regular');
 }
 
 async function getEquippedProfileItems(profile) {
@@ -400,7 +408,6 @@ async function createProfileCanvas(profile, discordUser) {
   const xpProgress = xpNeeded > 0 ? xp / xpNeeded : 0;
   const equippedItems = await getEquippedProfileItems(profile);
 
-  // Fond général
   const bg = ctx.createLinearGradient(0, 0, width, height);
   bg.addColorStop(0, '#13081d');
   bg.addColorStop(0.35, '#22123d');
@@ -415,7 +422,6 @@ async function createProfileCanvas(profile, discordUser) {
   drawGlow(ctx, 1180, 740, 280, '#ff7a4e', 0.14);
   drawGlow(ctx, 230, 710, 250, '#3bd6ff', 0.10);
 
-  // Particules magiques
   for (let i = 0; i < 85; i += 1) {
     const px = Math.random() * width;
     const py = Math.random() * height;
@@ -435,7 +441,6 @@ async function createProfileCanvas(profile, discordUser) {
   drawMagicCircle(ctx, 1180, 220, 110, '#ffcf63');
   drawMagicCircle(ctx, 180, 705, 96, '#7f5cff');
 
-  // Carte principale
   roundRect(ctx, 50, 50, width - 100, height - 100, 36);
   ctx.fillStyle = 'rgba(8, 12, 24, 0.84)';
   ctx.fill();
@@ -448,7 +453,6 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  // Header
   const headerGradient = ctx.createLinearGradient(90, 85, width - 90, 160);
   headerGradient.addColorStop(0, 'rgba(127, 92, 255, 0.45)');
   headerGradient.addColorStop(0.55, 'rgba(255, 207, 99, 0.16)');
@@ -467,7 +471,6 @@ async function createProfileCanvas(profile, discordUser) {
   drawText(ctx, `Mage de rang ${mageRank}`, 880, 104, 21, '#ffffff', 'bold');
   drawText(ctx, getRankLabel(mageRank), 880, 132, 33, '#ffcf63', 'bold');
 
-  // Logo local
   const logo = await loadLocalImage(LOGO_PATH);
 
   if (logo) {
@@ -484,14 +487,13 @@ async function createProfileCanvas(profile, discordUser) {
     console.warn('⚠️ Logo manquant : src/assets/fairy-slayer-logo.png');
   }
 
-  // Image personnage : uniquement celle mise par le joueur
   const avatarUrl = profile?.avatarUrl || null;
   const avatar = avatarUrl ? await loadRemoteImage(avatarUrl) : null;
 
   const avatarX = 100;
   const avatarY = 240;
   const avatarW = 320;
-  const avatarH = 430;
+  const avatarH = 400;
 
   roundRect(ctx, avatarX, avatarY, avatarW, avatarH, 28);
   ctx.fillStyle = 'rgba(14, 19, 36, 0.95)';
@@ -521,95 +523,91 @@ async function createProfileCanvas(profile, discordUser) {
 
   ctx.restore();
 
-  // Niveau RP sous image
-  roundRect(ctx, avatarX + 28, avatarY + avatarH - 66, avatarW - 56, 48, 16);
+  roundRect(ctx, avatarX + 28, avatarY + avatarH - 60, avatarW - 56, 48, 16);
   ctx.fillStyle = 'rgba(7, 10, 20, 0.78)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(255, 207, 99, 0.35)';
   ctx.stroke();
 
-  drawCenteredText(ctx, `Niveau RP ${level}`, avatarX + 28, avatarY + avatarH - 53, avatarW - 56, 22, '#ffcf63', 'bold');
+  drawCenteredText(ctx, `Niveau RP ${level}`, avatarX + 28, avatarY + avatarH - 47, avatarW - 56, 22, '#ffcf63', 'bold');
 
-  // Infos principales
   drawInfoBox(ctx, 'MAGIE', truncateText(magicType, 26), 470, 240, 380, 78, '#ff7a4e');
   drawInfoBox(ctx, 'GUILDE', truncateText(guildName, 26), 880, 240, 380, 78, '#3bd6ff');
 
   drawInfoBox(ctx, 'TITRE', truncateText(title, 30), 470, 338, 380, 78, '#ffcf63');
   drawInfoBox(ctx, 'ÂGE', truncateText(age, 18), 880, 338, 380, 78, '#7f5cff');
 
-  // Puissance
-  roundRect(ctx, 470, 440, 790, 112, 22);
+  roundRect(ctx, 470, 430, 790, 102, 22);
   ctx.fillStyle = 'rgba(10, 14, 30, 0.88)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(255, 207, 99, 0.35)';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, 'NIVEAU DE PUISSANCE', 496, 454, 18, '#cec6f6', 'bold');
-  drawText(ctx, formatNumber(powerLevel), 496, 482, 44, '#ffcf63', 'bold');
-  drawBar(ctx, 760, 488, 460, 26, Math.min(1, powerLevel / 10000), '#7f5cff', '#ff7a4e');
+  drawText(ctx, 'NIVEAU DE PUISSANCE', 496, 446, 18, '#cec6f6', 'bold');
+  drawText(ctx, formatNumber(powerLevel), 496, 474, 42, '#ffcf63', 'bold');
+  drawBar(ctx, 760, 482, 460, 26, Math.min(1, powerLevel / 10000), '#7f5cff', '#ff7a4e');
 
-  // XP
-  roundRect(ctx, 470, 572, 790, 98, 22);
+  roundRect(ctx, 470, 552, 790, 88, 22);
   ctx.fillStyle = 'rgba(10, 14, 30, 0.88)';
   ctx.fill();
   ctx.strokeStyle = 'rgba(127, 92, 255, 0.35)';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, `Progression du niveau ${level}`, 496, 590, 21, '#ffffff', 'bold');
-  drawText(ctx, `${formatNumber(xp)} / ${formatNumber(xpNeeded)} XP`, 965, 590, 18, '#cec6f6', 'bold');
-  drawBar(ctx, 496, 626, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
+  drawText(ctx, `Progression du niveau ${level}`, 496, 568, 20, '#ffffff', 'bold');
+  drawText(ctx, `${formatNumber(xp)} / ${formatNumber(xpNeeded)} XP`, 965, 568, 17, '#cec6f6', 'bold');
+  drawBar(ctx, 496, 604, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
 
-// Description + équipement actif
-roundRect(ctx, 100, 655, 720, 85, 18);
-ctx.fillStyle = 'rgba(255,255,255,0.06)';
-ctx.fill();
-ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-ctx.stroke();
+  roundRect(ctx, 100, 660, 720, 84, 18);
+  ctx.fillStyle = 'rgba(255,255,255,0.06)';
+  ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
+  ctx.stroke();
 
-drawText(ctx, 'DESCRIPTION', 122, 667, 14, '#cec6f6', 'bold');
-drawWrappedText(ctx, description, 122, 690, 675, 17, 1, 15, '#ffffff');
+  drawText(ctx, 'DESCRIPTION', 122, 671, 14, '#cec6f6', 'bold');
+  drawWrappedText(ctx, description, 122, 693, 675, 17, 1, 15, '#ffffff');
 
-drawText(
-  ctx,
-  `Équipement : ${equippedItems.equipment}`,
-  122,
-  713,
-  14,
-  '#ffcf63',
-  'bold',
-  675,
-);
+  drawText(
+    ctx,
+    `Équipement : ${equippedItems.equipment}`,
+    122,
+    715,
+    14,
+    '#ffcf63',
+    'bold',
+    675,
+  );
 
-drawText(
-  ctx,
-  `Lacrima : ${equippedItems.lacrima}`,
-  122,
-  731,
-  14,
-  '#3bd6ff',
-  'bold',
-  675,
-);
+  drawText(
+    ctx,
+    `Lacrima : ${equippedItems.lacrima}`,
+    122,
+    733,
+    14,
+    '#3bd6ff',
+    'bold',
+    675,
+  );
 
-  // Stats bas
-drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 655, 180, 85, '#ffcf63');
+  drawInfoBox(ctx, 'JEWELS', formatNumber(jewels), 850, 660, 180, 84, '#ffcf63');
 
-drawInfoBox(
-  ctx,
-  'RÉPUTATION',
-  `${reputation} · ${getReputationLabel(reputation)}`,
-  1050,
-  655,
-  210,
-  85,
-  '#7f5cff',
-);
+  drawInfoBox(
+    ctx,
+    'RÉPUTATION',
+    `${reputation} · ${getReputationLabel(reputation)}`,
+    1050,
+    660,
+    210,
+    84,
+    '#7f5cff',
+  );
 
   return new AttachmentBuilder(await canvas.encode('png'), {
     name: 'fairy-slayer-profil.png',
   });
 }
 
-module.exports = { createProfileCanvas };
+module.exports = {
+  createProfileCanvas,
+};
