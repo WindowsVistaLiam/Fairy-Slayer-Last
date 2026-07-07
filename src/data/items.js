@@ -246,6 +246,40 @@ const CRAFTED_ITEMS = [
 
 ITEMS.push(...MATERIAL_ITEMS, ...CRAFTED_ITEMS);
 
+function getItemEmoji(item) {
+  if (!item) return '📦';
+  const id = String(item.itemId || '');
+
+  if (/potion|elixir|antidote|panacee|essence/.test(id)) return /soin|panacee/.test(id) ? '💖' : '🧪';
+  if (/grimoire|livre|codex|tome/.test(id)) return '📖';
+  if (/marteau/.test(id)) return '🔨';
+  if (/arc_/.test(id)) return '🏹';
+  if (/lance/.test(id)) return '🔱';
+  if (item.equipSlot === 'arme') return '⚔️';
+  if (item.equipSlot === 'tenue') return /robe|cape|manteau/.test(id) ? '🥋' : '🛡️';
+  if (item.equipSlot === 'accessoire') return '💍';
+  if (item.type === 'lacrima') return '💎';
+  if (/herbe/.test(id)) return '🌿';
+  if (/racine/.test(id)) return '🫚';
+  if (/eau/.test(id)) return '💧';
+  if (/poussiere/.test(id)) return '✨';
+  if (/lingot|acier|mithril/.test(id)) return '🔩';
+  if (/ecaille/.test(id)) return '🐉';
+  if (/cuir/.test(id)) return '🟫';
+  if (/tissu|fil/.test(id)) return '🧵';
+  if (/plaque/.test(id)) return '🔰';
+  if (/parchemin/.test(id)) return '📜';
+  if (/encre/.test(id)) return '🖋️';
+  if (/cristal/.test(id)) return '🔮';
+  if (/plume/.test(id)) return '🪶';
+  if (item.type === 'mission') return '📜';
+  if (item.type === 'rare') return '🌟';
+  if (item.type === 'consommable') return '🧪';
+  return '📦';
+}
+
+for (const item of ITEMS) item.emoji = item.emoji || getItemEmoji(item);
+
 function getAllItems() {
   return ITEMS;
 }
@@ -322,4 +356,5 @@ module.exports = {
   getEquipSlotLabel,
   getItemEquipSlot,
   getItemPowerBonus,
+  getItemEmoji,
 };

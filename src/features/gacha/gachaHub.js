@@ -193,6 +193,7 @@ function getPaginationRow(prefix, page, totalPages, backId = 'gacha:home') {
 function getCardSelectRow(customId, cards, placeholder = 'Voir une carte en détail') {
   const options = cards.slice(0, 25).map((card) => new StringSelectMenuOptionBuilder()
     .setLabel(card.name.slice(0, 100))
+    .setEmoji(card.emoji || '🃏')
     .setDescription(`${card.rarityLabel} — ${card.faction}`.slice(0, 100))
     .setValue(card.cardId));
   if (!options.length) return null;

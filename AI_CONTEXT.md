@@ -32,6 +32,7 @@ Le `README.md` sert de référence fonctionnelle et de source d’idées. Le cod
 ## Fonctionnalités terminées
 
 - Profils multiples par utilisateur et profil actif.
+- Édition complète de l’identité : nom, âge, genre, magie, titre et biographie ; rang et puissance initiale ne sont pas choisis par le joueur.
 - Guildes RP par personnage : création, classement par puissance collective, candidatures, invitations, membres, exclusions, rangs personnalisés et permissions déléguées.
 - Carte de profil grand Canvas : image, statistiques, équipement, lacrima et puissance totale.
 - Inventaire MongoDB réel, consommables, achat, vente, équipement et déséquipement.
@@ -50,6 +51,7 @@ Le `README.md` sert de référence fonctionnelle et de source d’idées. Le cod
 - Tableau enrichi à 14 missions, avec des récompenses reliées au catalogue.
 - Page `/profil` → Équipement dédiée : quatre slots, bonus et puissance totale.
 - Panneaux grand Canvas adaptatifs : hauteur dynamique, douze lignes visibles et résumé du surplus.
+- Décoration Canvas généralisée : badges emoji pour les statistiques et les listes, thèmes dédiés aux guildes, métiers, craft, combats et daily, pictogrammes sur les objets et menus Discord.
 - Inspection détaillée d’un profil depuis `/admin`, en lecture seule.
 - Gacha Fairy Tail avec 299 cartes, cinq raretés, un tirage gratuit toutes les deux heures et des achats simple/multiple en fragments.
 - Les 34 cartes originales gardent leurs IDs ; 60 personnages reçoivent quatre éditions générées et 25 ont une édition Mythique supplémentaire.

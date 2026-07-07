@@ -88,6 +88,7 @@ async function handleComponentInteraction(interaction) {
   if (id === 'profile:switch') return profileHub.showSwitchMenu(interaction);
   if (id === 'profile:switch:select') return profileHub.handleSwitchSelect(interaction);
   if (id === 'profile:edit') return profileHub.showEditModal(interaction);
+  if (id === 'profile:description') return profileHub.showDescriptionModal(interaction);
   if (id === 'profile:image') return profileHub.showImageModal(interaction);
 
   // Inventaire
@@ -99,6 +100,11 @@ async function handleComponentInteraction(interaction) {
   if (id === 'profile:inventory:lacrima') return profileHub.showInventory(interaction, 'lacrima');
   if (id === 'profile:inventory:rare') return profileHub.showInventory(interaction, 'rare');
   if (id === 'profile:inventory:mission') return profileHub.showInventory(interaction, 'mission');
+  if (id === 'profile:inventory:materiau') return profileHub.showInventory(interaction, 'materiau');
+  if (id.startsWith('profile:inventory:page:')) {
+    const [, , , category, rawPage] = id.split(':');
+    return profileHub.showInventory(interaction, category, Number.parseInt(rawPage, 10) || 0);
+  }
   if (id === 'profile:inventory:item') return profileHub.showInventoryItem(interaction);
   if (id.startsWith('profile:inventory:use:')) return profileHub.useInventoryItem(interaction);
   if (id.startsWith('profile:inventory:equip:')) return profileHub.equipInventoryItemAction(interaction);
@@ -147,6 +153,7 @@ async function handleModalInteraction(interaction) {
   // Profil
   if (id === 'profile:create:modal') return profileHub.handleCreateModal(interaction);
   if (id === 'profile:edit:modal') return profileHub.handleEditModal(interaction);
+  if (id === 'profile:description:modal') return profileHub.handleDescriptionModal(interaction);
   if (id === 'profile:image:modal') return profileHub.handleImageModal(interaction);
 
   // Relations

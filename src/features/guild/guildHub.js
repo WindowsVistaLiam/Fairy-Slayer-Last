@@ -148,6 +148,7 @@ function homeRows(context, invites = []) {
           .addOptions(invites.slice(0, 25).map((invite) => (
             new StringSelectMenuOptionBuilder()
               .setLabel(truncateText(invite.mageGuildId?.name || 'Guilde inconnue', 100))
+              .setEmoji('📨')
               .setDescription('Invitation en attente')
               .setValue(String(invite._id))
           ))),
@@ -200,7 +201,7 @@ async function openGuildHub(interaction) {
 
   const attachment = await createPanelCanvas({
     fileName: 'fairy-slayer-guilde.png',
-    variant: 'relations',
+    variant: 'guild',
     section: context.mageGuild ? `Guilde - ${context.mageGuild.name}` : 'Guildes de mages',
     title: context.mageGuild ? profile.characterName : 'Fonde ta propre histoire',
     subtitle: context.mageGuild
@@ -308,7 +309,7 @@ async function showMembers(interaction) {
   buttons.push(new ButtonBuilder().setCustomId('guild:home').setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary));
 
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-guilde-membres.png', variant: 'relations',
+    fileName: 'fairy-slayer-guilde-membres.png', variant: 'guild',
     section: `${state.context.mageGuild.name} - Membres`, title: `${members.length} membre(s)`,
     subtitle: 'Les permissions dépendent du rang attribué.', lines, footer: 'Guilde - Membres',
   });
@@ -337,7 +338,7 @@ async function showRanks(interaction) {
   buttons.push(new ButtonBuilder().setCustomId('guild:home').setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary));
 
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-guilde-rangs.png', variant: 'relations',
+    fileName: 'fairy-slayer-guilde-rangs.png', variant: 'guild',
     section: `${state.context.mageGuild.name} - Rangs`, title: `${ranks.length} rang(s)`,
     subtitle: 'Un rang peut déléguer la gestion des membres ou des rangs.', lines, footer: 'Guilde - Rangs',
   });
@@ -401,6 +402,7 @@ async function showGuildBrowser(interaction) {
         .setPlaceholder('Choisir une guilde')
         .addOptions(guilds.map((guild) => new StringSelectMenuOptionBuilder()
           .setLabel(truncateText(guild.name, 100))
+          .setEmoji('🏰')
           .setDescription(`${countByGuild.get(String(guild._id)) || 0} membre(s)`)
           .setValue(String(guild._id)))),
     ));
@@ -411,7 +413,7 @@ async function showGuildBrowser(interaction) {
   ));
 
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-guildes.png', variant: 'relations', section: 'Guildes de mages',
+    fileName: 'fairy-slayer-guildes.png', variant: 'guild', section: 'Guildes de mages',
     title: `${guilds.length} guilde(s)`, subtitle: 'Consulte une guilde avant de lui envoyer ta candidature.',
     lines, footer: 'Guilde - Annuaire',
   });
@@ -430,7 +432,7 @@ async function showGuildDetail(interaction, mageGuildId) {
     GuildApplication.exists({ mageGuildId: mageGuild._id, profileId: profile._id }),
   ]);
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-guilde-detail.png', variant: 'relations', section: 'Fiche de guilde',
+    fileName: 'fairy-slayer-guilde-detail.png', variant: 'guild', section: 'Fiche de guilde',
     title: mageGuild.name, subtitle: `${memberCount} membre(s) - Maître : ${owner?.characterName || 'Inconnu'}`,
     lines: [mageGuild.description, existing ? 'Ta candidature est déjà en attente.' : 'Tu peux envoyer une candidature au conseil de cette guilde.'],
     footer: 'Guilde - Candidature',
@@ -479,6 +481,7 @@ async function showApplications(interaction) {
       new StringSelectMenuBuilder().setCustomId('guild:applications:select').setPlaceholder('Examiner une candidature')
         .addOptions(applications.map((application) => new StringSelectMenuOptionBuilder()
           .setLabel(truncateText(application.profileId?.characterName || 'Profil supprimé', 100))
+          .setEmoji('👤')
           .setDescription(truncateText(application.message || 'Aucun message', 100))
           .setValue(String(application._id)))),
     ));
@@ -487,7 +490,7 @@ async function showApplications(interaction) {
     new ButtonBuilder().setCustomId('guild:home').setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
   ));
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-candidatures.png', variant: 'relations', section: `${state.context.mageGuild.name} - Recrutement`,
+    fileName: 'fairy-slayer-candidatures.png', variant: 'guild', section: `${state.context.mageGuild.name} - Recrutement`,
     title: `${applications.length} candidature(s)`, subtitle: 'Sélectionne un personnage pour accepter ou refuser sa demande.',
     lines: applications.length
       ? applications.map((application) => `${application.profileId?.characterName || 'Profil supprimé'} - ${truncateText(application.message || 'Aucun message', 90)}`)
@@ -503,7 +506,7 @@ async function showApplicationDetail(interaction, applicationId) {
   const application = await GuildApplication.findOne({ _id: applicationId, mageGuildId: state.context.mageGuild._id }).populate('profileId');
   if (!application?.profileId) return replyError(interaction, 'Cette candidature n’existe plus.');
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-candidature.png', variant: 'relations', section: 'Candidature',
+    fileName: 'fairy-slayer-candidature.png', variant: 'guild', section: 'Candidature',
     title: application.profileId.characterName,
     subtitle: `Rang ${application.profileId.mageRank} - Niveau ${application.profileId.level} - Puissance ${application.profileId.powerLevel}`,
     lines: [application.message || 'Aucun message de candidature.'], footer: `Candidature pour ${state.context.mageGuild.name}`,
@@ -590,7 +593,7 @@ async function showInvitation(interaction, inviteId) {
   if (!invite?.mageGuildId) return replyError(interaction, 'Cette invitation n’existe plus.');
 
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-guilde-invitation.png', variant: 'relations', section: 'Invitation de guilde',
+    fileName: 'fairy-slayer-guilde-invitation.png', variant: 'guild', section: 'Invitation de guilde',
     title: invite.mageGuildId.name, subtitle: `Pour ${profile.characterName}`,
     lines: [invite.mageGuildId.description, 'Accepter rejoindra cette guilde avec ton personnage actif.'],
     footer: 'Guilde - Invitation',

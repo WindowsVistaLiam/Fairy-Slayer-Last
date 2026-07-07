@@ -6,6 +6,11 @@ const { AttachmentBuilder } = require('discord.js');
 const FONT_TITLE_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'crown_title', 'CROWNT.TTF');
 const FONT_REGULAR_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Marcellus', 'Marcellus-Regular.ttf');
 const FONT_BOLD_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Cinzel', 'static', 'Cinzel-Bold.ttf');
+const EMOJI_FONT_PATHS = [
+  'C:/Windows/Fonts/seguiemj.ttf',
+  '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',
+  '/usr/share/fonts/opentype/noto/NotoColorEmoji.ttf',
+];
 
 const LOGO_PATH = path.join(__dirname, '..', 'assets', 'fairy-slayer-logo.png');
 
@@ -14,6 +19,7 @@ const FONT_REGULAR = 'FairyPanelRegular';
 const FONT_BOLD = 'FairyPanelBold';
 
 let fontsLoaded = false;
+let emojiFontLoaded = false;
 
 const THEME = {
   profile: '#9b8cff',
@@ -26,7 +32,31 @@ const THEME = {
   ranking: '#ffdf91',
   admin: '#ff6b6b',
   gacha: '#e66cff',
+  guild: '#46c7a6',
+  craft: '#ff9f43',
+  profession: '#f2c94c',
+  combat: '#ff5c5c',
+  daily: '#59c3ff',
   neutral: '#9b8cff',
+};
+
+const VARIANT_ICONS = {
+  profile: ['👤', '✨', '📖', '⭐'],
+  inventory: ['🎒', '⚔️', '🛡️', '💎', '🧪'],
+  missions: ['📜', '⚔️', '⭐', '🎁'],
+  relations: ['🤝', '💞', '⚔️', '👥'],
+  rumors: ['🗣️', '👁️', '✨', '📣'],
+  reputation: ['⭐', '🏆', '✨', '📜'],
+  shop: ['🏪', '💰', '🧪', '⚔️', '💎'],
+  ranking: ['🏆', '🥇', '🥈', '🥉'],
+  admin: ['⚙️', '🛡️', '📋', '🔧'],
+  gacha: ['✨', '🔮', '🌟', '💎'],
+  guild: ['🏰', '👥', '🏷️', '📨', '⭐'],
+  craft: ['🛠️', '🔨', '⚗️', '📖', '✨'],
+  profession: ['🛠️', '🌾', '💰', '🎶', '💎'],
+  combat: ['⚔️', '🔥', '🛡️', '🏆'],
+  daily: ['🌅', '🗺️', '🎁', '✨'],
+  neutral: ['✨', '🔮', '⭐', '📜'],
 };
 
 function ensureFonts() {
@@ -54,6 +84,11 @@ function ensureFonts() {
     } else {
       console.warn('⚠️ Panel police bold manquante : src/assets/fonts/Cinzel/static/Cinzel-Bold.ttf');
     }
+
+    const emojiPath = EMOJI_FONT_PATHS.find((fontPath) => fs.existsSync(fontPath));
+    if (emojiPath) {
+      emojiFontLoaded = Boolean(GlobalFonts.registerFromPath(emojiPath, 'FairyEmoji'));
+    }
   } catch (error) {
     console.error('❌ Erreur chargement polices panel Canvas :', error);
   }
@@ -70,7 +105,7 @@ function setFont(ctx, size = 24, style = 'regular') {
 
   const family = getFontFamily(style);
 
-  ctx.font = `${size}px "${family}"`;
+  ctx.font = `${size}px "${family}", "FairyEmoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
 }
@@ -104,6 +139,37 @@ function drawCenteredText(ctx, text, x, y, width, size = 24, color = '#ffffff', 
   ctx.restore();
 }
 
+function drawEmoji(ctx, emoji, x, y, size = 24) {
+  ensureFonts();
+  ctx.save();
+
+  if (!emojiFontLoaded) {
+    const radius = size * 0.34;
+    ctx.translate(x, y + size * 0.48);
+    ctx.fillStyle = '#ffdf91';
+    ctx.beginPath();
+    ctx.moveTo(0, -radius);
+    ctx.lineTo(radius * 0.32, -radius * 0.32);
+    ctx.lineTo(radius, 0);
+    ctx.lineTo(radius * 0.32, radius * 0.32);
+    ctx.lineTo(0, radius);
+    ctx.lineTo(-radius * 0.32, radius * 0.32);
+    ctx.lineTo(-radius, 0);
+    ctx.lineTo(-radius * 0.32, -radius * 0.32);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
+  ctx.font = `${size}px "FairyEmoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
+  ctx.textBaseline = 'top';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillText(String(emoji || '✨'), x, y);
+  ctx.restore();
+}
+
 function roundRect(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2);
 
@@ -123,10 +189,17 @@ function stripDiscordMarkdown(text) {
     .replace(/`/g, '')
     .replace(/<@!?(\d+)>/g, 'Utilisateur')
     .replace(/<#(\d+)>/g, 'Salon')
-    .replace(/[\u{1F300}-\u{1FAFF}]/gu, '')
+    .replace(/\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*/gu, '')
     .replace(/·/g, '-')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function extractLeadingEmoji(text) {
+  const value = String(text || '').trimStart();
+  const match = value.match(/^(\p{Extended_Pictographic}(?:\uFE0F|\u200D\p{Extended_Pictographic})*)\s*/u);
+  if (!match) return { emoji: null, text: value };
+  return { emoji: match[1], text: value.slice(match[0].length) };
 }
 
 function wrapText(ctx, text, maxWidth, maxLines = 2) {
@@ -257,6 +330,26 @@ function drawCornerLines(ctx, x, y, w, h, color) {
   ctx.restore();
 }
 
+function getStatEmoji(stat) {
+  if (stat?.emoji) return stat.emoji;
+  const label = String(stat?.label || '').toLowerCase();
+  if (/joyaux|richesse|prix|valeur|solde/.test(label)) return '💰';
+  if (/puissance|bonus|force/.test(label)) return '⚔️';
+  if (/niveau|xp|progression/.test(label)) return '📈';
+  if (/rang|classement/.test(label)) return '🏆';
+  if (/métier|artisan/.test(label)) return '🛠️';
+  if (/membre|profil|personnage/.test(label)) return '👤';
+  if (/guilde/.test(label)) return '🏰';
+  if (/réputation|statut/.test(label)) return '⭐';
+  if (/mission|quête/.test(label)) return '📜';
+  if (/objet|inventaire|total/.test(label)) return '🎒';
+  if (/carte|collection/.test(label)) return '🃏';
+  if (/victoire/.test(label)) return '🏆';
+  if (/défaite/.test(label)) return '💥';
+  if (/fragment|lacrima/.test(label)) return '💎';
+  return '✨';
+}
+
 function drawStat(ctx, stat, x, y, w, accent) {
   const h = 86;
 
@@ -268,11 +361,12 @@ function drawStat(ctx, stat, x, y, w, accent) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, stat.label, x + 18, y + 15, 16, '#cec6f6', 'bold', w - 36);
+  drawEmoji(ctx, getStatEmoji(stat), x + 29, y + 11, 22);
+  drawText(ctx, stat.label, x + 48, y + 15, 16, '#cec6f6', 'bold', w - 64);
   drawText(ctx, stat.value, x + 18, y + 43, 28, '#ffffff', 'bold', w - 36);
 }
 
-function drawLineItem(ctx, line, x, y, w, accent, textColor = '#f4f1ff') {
+function drawLineItem(ctx, line, x, y, w, accent, textColor = '#f4f1ff', emoji = '✨') {
   roundRect(ctx, x, y, w, 60, 16);
   ctx.fillStyle = 'rgba(255,255,255,0.045)';
   ctx.fill();
@@ -281,16 +375,17 @@ function drawLineItem(ctx, line, x, y, w, accent, textColor = '#f4f1ff') {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  ctx.fillStyle = accent;
+  ctx.fillStyle = `${accent}33`;
   ctx.beginPath();
-  ctx.arc(x + 24, y + 30, 7, 0, Math.PI * 2);
+  ctx.arc(x + 27, y + 30, 19, 0, Math.PI * 2);
   ctx.fill();
+  drawEmoji(ctx, emoji, x + 27, y + 17, 20);
 
   setFont(ctx, 22, 'regular');
 
-  const wrapped = wrapText(ctx, line, w - 72, 1);
+  const wrapped = wrapText(ctx, line, w - 82, 1);
 
-  drawText(ctx, wrapped[0] || '', x + 48, y + 17, 22, textColor, 'regular', w - 72);
+  drawText(ctx, wrapped[0] || '', x + 58, y + 17, 22, textColor, 'regular', w - 82);
 }
 
 async function drawLogo(ctx, width, height) {
@@ -340,6 +435,8 @@ async function createPanelCanvas(options) {
   const width = 1400;
   const height = Math.max(820, footerY + 135);
   const accent = THEME[variant] || THEME.neutral;
+  const variantIcons = VARIANT_ICONS[variant] || VARIANT_ICONS.neutral;
+  const decoratedTitle = extractLeadingEmoji(title);
 
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext('2d');
@@ -411,7 +508,16 @@ async function createPanelCanvas(options) {
   drawText(ctx, 'FAIRY SLAYER', 120, 98, 34, '#ffcf63', 'title');
   drawText(ctx, stripDiscordMarkdown(section).toUpperCase(), 120, 140, 36, '#ffffff', 'bold', 560);
 
-  drawText(ctx, stripDiscordMarkdown(title), 735, 110, 28, accent, 'bold', 400);
+  ctx.beginPath();
+  ctx.arc(696, 139, 34, 0, Math.PI * 2);
+  ctx.fillStyle = `${accent}35`;
+  ctx.fill();
+  ctx.strokeStyle = `${accent}cc`;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  drawEmoji(ctx, decoratedTitle.emoji || variantIcons[0], 696, 120, 30);
+
+  drawText(ctx, stripDiscordMarkdown(decoratedTitle.text), 735, 110, 28, accent, 'bold', 400);
 
   if (subtitle) {
     drawText(ctx, stripDiscordMarkdown(subtitle), 735, 148, 19, '#e8e7ff', 'regular', 390);
@@ -448,13 +554,17 @@ async function createPanelCanvas(options) {
   let cursorY = contentY + 30;
   const lineGap = 14;
 
-  for (const rawLine of visibleLines) {
+  for (const [lineIndex, rawLine] of visibleLines.entries()) {
     const lineText = typeof rawLine === 'object' && rawLine !== null ? rawLine.text : rawLine;
     const lineColor = typeof rawLine === 'object' && rawLine !== null ? rawLine.color : accent;
-    const wrapped = wrapText(ctx, lineText, contentW - 100, 1);
+    const leading = extractLeadingEmoji(lineText);
+    const lineEmoji = typeof rawLine === 'object' && rawLine !== null && rawLine.emoji
+      ? rawLine.emoji
+      : (leading.emoji || variantIcons[lineIndex % variantIcons.length]);
+    const wrapped = wrapText(ctx, leading.text, contentW - 100, 1);
     const line = wrapped[0] || '';
 
-    drawLineItem(ctx, line, contentX + 30, cursorY, contentW - 60, lineColor || accent, lineColor || '#f4f1ff');
+    drawLineItem(ctx, line, contentX + 30, cursorY, contentW - 60, lineColor || accent, lineColor || '#f4f1ff', lineEmoji);
 
     cursorY += 60 + lineGap;
   }
@@ -468,7 +578,8 @@ async function createPanelCanvas(options) {
     ctx.strokeStyle = 'rgba(255,255,255,0.09)';
     ctx.stroke();
 
-    drawText(ctx, stripDiscordMarkdown(footer), 120, footerY + 13, 19, '#cfc8ff', 'regular', width - 240);
+    drawEmoji(ctx, variantIcons[0], 118, footerY + 10, 20);
+    drawText(ctx, stripDiscordMarkdown(footer), 145, footerY + 13, 19, '#cfc8ff', 'regular', width - 265);
   }
 
   return new AttachmentBuilder(await canvas.encode('png'), {

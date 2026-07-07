@@ -19,7 +19,7 @@ function formatIngredients(recipe, ownedById) {
   return Object.entries(recipe.ingredients).map(([itemId, quantity]) => {
     const item = getItemById(itemId);
     const owned = ownedById.get(itemId) || 0;
-    return `${item?.name || itemId} ${owned}/${quantity}`;
+    return `${item?.emoji || '📦'} ${item?.name || itemId} ${owned}/${quantity}`;
   }).join(', ');
 }
 
@@ -42,19 +42,20 @@ async function openCraftHub(interaction) {
   const ownedById = new Map(inventory.map((item) => [item.itemId, Number(item.quantity || 0)]));
   const lines = recipes.map((recipe) => {
     const output = getItemById(recipe.outputItemId);
-    return `${output?.name || recipe.outputItemId} - ${formatIngredients(recipe, ownedById)}`;
+    return `${output?.emoji || '🛠️'} ${output?.name || recipe.outputItemId} - ${formatIngredients(recipe, ownedById)}`;
   });
   const options = recipes.map((recipe) => {
     const output = getItemById(recipe.outputItemId);
     const canCraft = Object.entries(recipe.ingredients).every(([itemId, quantity]) => (ownedById.get(itemId) || 0) >= quantity);
     return new StringSelectMenuOptionBuilder()
       .setLabel((output?.name || recipe.outputItemId).slice(0, 100))
+      .setEmoji(output?.emoji || '🛠️')
       .setDescription(`${canCraft ? 'Prêt à fabriquer' : 'Ingrédients manquants'} - ${formatIngredients(recipe, ownedById)}`.slice(0, 100))
       .setValue(recipe.recipeId);
   });
 
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-craft.png', variant: 'inventory',
+    fileName: 'fairy-slayer-craft.png', variant: 'craft',
     section: `Atelier - ${profession.name}`, title: `${recipes.length} recette(s) disponibles`,
     subtitle: 'Sélectionner une recette consomme ses ingrédients et fabrique un exemplaire.',
     stats: [

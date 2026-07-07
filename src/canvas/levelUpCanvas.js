@@ -8,6 +8,7 @@ function registerFonts() {
     ['C:/Windows/Fonts/segoeuib.ttf', 'Segoe UI Bold'],
     ['C:/Windows/Fonts/arial.ttf', 'Arial'],
     ['C:/Windows/Fonts/arialbd.ttf', 'Arial Bold'],
+    ['C:/Windows/Fonts/seguiemj.ttf', 'Segoe UI Emoji'],
     ['/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf', 'Segoe UI'],
     ['/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf', 'Segoe UI Bold'],
   ];
@@ -23,7 +24,7 @@ function registerFonts() {
 
 registerFonts();
 
-const FONT = 'Segoe UI, Arial, sans-serif';
+const FONT = '"Segoe UI", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif';
 
 function roundRect(ctx, x, y, w, h, r) {
   const radius = Math.min(r, w / 2, h / 2);
@@ -122,7 +123,7 @@ async function createLevelUpCanvas(profile, gainedXp) {
   ctx.restore();
 
   drawText(ctx, 'FAIRY SLAYER', 78, 96, 25, '#f7d078', true);
-  drawText(ctx, 'NIVEAU SUPÉRIEUR', 78, 158, 54, '#ffffff', true, 620);
+  drawText(ctx, '✨ NIVEAU SUPÉRIEUR', 78, 158, 54, '#ffffff', true, 620);
   drawText(ctx, profile.characterName || 'Personnage inconnu', 82, 213, 32, '#d9d2ff', true, 620);
 
   roundRect(ctx, 82, 246, 420, 74, 22);
@@ -131,10 +132,10 @@ async function createLevelUpCanvas(profile, gainedXp) {
   ctx.strokeStyle = 'rgba(247,208,120,0.42)';
   ctx.stroke();
 
-  drawText(ctx, `Niveau RP ${profile.level}`, 108, 294, 38, '#f7d078', true);
-  drawText(ctx, `XP gagné : ${formatNumber(gainedXp)}`, 545, 294, 27, '#ffffff', true, 350);
+  drawText(ctx, `🏆 Niveau RP ${profile.level}`, 108, 294, 38, '#f7d078', true);
+  drawText(ctx, `📈 XP gagné : ${formatNumber(gainedXp)}`, 545, 294, 27, '#ffffff', true, 350);
 
-  drawText(ctx, 'La guilde reconnaît ta progression.', 700, 335, 22, '#d9d2ff', false, 330);
+  drawText(ctx, '🏰 La guilde reconnaît ta progression.', 700, 335, 22, '#d9d2ff', false, 330);
 
   return new AttachmentBuilder(await canvas.encode('png'), {
     name: 'fairy-slayer-level-up.png',

@@ -294,7 +294,7 @@ function formatInventoryLines(items, limit = 8) {
     const bonusText = item.powerBonus ? ` - +${item.powerBonus} puissance` : '';
     const equippedText = item.equipped ? ' - ÉQUIPÉ' : '';
 
-    return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - revente ${item.sellPrice} Joyaux${equippedText}`;
+    return `${item.emoji || '📦'} ${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - revente ${item.sellPrice} Joyaux${equippedText}`;
   });
 }
 

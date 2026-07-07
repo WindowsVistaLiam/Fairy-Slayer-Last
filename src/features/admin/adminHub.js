@@ -245,7 +245,7 @@ function findItemByNameOrId(input) {
 function formatItemSearchMatches(matches) {
   return matches
     .slice(0, 8)
-    .map((item) => `• ${item.name} — \`${item.itemId}\``)
+    .map((item) => `${item.emoji || '📦'} ${item.name} — \`${item.itemId}\``)
     .join('\n');
 }
 
@@ -329,7 +329,7 @@ async function showItemCatalog(interaction) {
   const items = getAllItems();
 
   const lines = items.map((item) => (
-    `${item.name} - ID ${item.itemId} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - achat ${formatNumber(item.basePrice)} - revente ${formatNumber(item.sellPrice)}`
+    `${item.emoji || '📦'} ${item.name} - ID ${item.itemId} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)} - achat ${formatNumber(item.basePrice)} - revente ${formatNumber(item.sellPrice)}`
   ));
 
   const fileName = 'fairy-slayer-admin-objets.png';

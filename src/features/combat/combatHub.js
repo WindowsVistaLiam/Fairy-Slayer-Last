@@ -87,7 +87,7 @@ async function runPve(interaction, search = '', rng = Math.random) {
   });
 
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-combat-pve.png', variant: won ? 'gacha' : 'admin',
+    fileName: 'fairy-slayer-combat-pve.png', variant: 'combat',
     section: 'Combat PvE', title: won ? 'Victoire !' : 'Défaite',
     subtitle: `${owned.card.characterName} affronte ${enemy.characterName}`,
     stats: [
@@ -112,7 +112,7 @@ async function showCombatStats(interaction) {
   const totalWins = stats.pveWins + stats.pvpWins;
   const totalLosses = stats.pveLosses + stats.pvpLosses;
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-stats-combat.png', variant: 'gacha', section: 'Statistiques combat',
+    fileName: 'fairy-slayer-stats-combat.png', variant: 'combat', section: 'Statistiques combat',
     title: interaction.user.username, subtitle: 'Historique des combats de cartes sur ce serveur.',
     stats: [
       { label: 'Victoires', value: formatNumber(totalWins) },
@@ -154,7 +154,7 @@ async function createPvpChallenge(interaction, opponent, search = '') {
     expiresAt: new Date(Date.now() + 10 * 60 * 1000),
   });
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-defi-pvp.png', variant: 'gacha', section: 'Défi PvP',
+    fileName: 'fairy-slayer-defi-pvp.png', variant: 'combat', section: 'Défi PvP',
     title: `${interaction.user.username} défie ${opponent.username}`,
     subtitle: 'Le défenseur utilisera automatiquement sa carte la plus puissante.',
     lines: [
@@ -234,7 +234,7 @@ async function handlePvpButton(interaction, action, sessionId, rng = Math.random
   session.status = 'completed'; session.winnerId = winnerId; session.fragmentsTransferred = transferred; await session.save();
 
   const attachment = await createPanelCanvas({
-    fileName: 'fairy-slayer-combat-pvp.png', variant: 'gacha', section: 'Résultat PvP',
+    fileName: 'fairy-slayer-combat-pvp.png', variant: 'combat', section: 'Résultat PvP',
     title: `<@${winnerId}> remporte le duel`, subtitle: `${transferred} fragments transférés au vainqueur.`,
     stats: [
       { label: 'Challenger', value: formatNumber(challengerPower) },

@@ -134,7 +134,7 @@ function formatShopItemLine(item, finalPrice, availability) {
   const bonusText = powerBonus > 0 ? ` - +${formatNumber(powerBonus)} puissance` : '';
   const status = availability.allowed ? 'Disponible' : `Bloqué : ${availability.reason}`;
 
-  return `${item.name} - ${formatNumber(finalPrice)} Joyaux - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - ${status}`;
+  return `${item.emoji || '📦'} ${item.name} - ${formatNumber(finalPrice)} Joyaux - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - ${status}`;
 }
 
 function getBuyRows(items, profile, rumors, powerInfo, filterType, page, totalPages) {
@@ -146,6 +146,7 @@ function getBuyRows(items, profile, rumors, powerInfo, filterType, page, totalPa
 
     return new StringSelectMenuOptionBuilder()
       .setLabel(item.name.slice(0, 100))
+      .setEmoji(item.emoji || '📦')
       .setDescription(`${formatNumber(finalPrice)} Joyaux - ${availability.reason}${bonusText}`.slice(0, 100))
       .setValue(item.itemId);
   });
@@ -183,16 +184,17 @@ function getBuyRows(items, profile, rumors, powerInfo, filterType, page, totalPa
   return rows;
 }
 
-function getSellRows(inventoryItems) {
+function getSellRows(inventoryItems, page = 0, totalPages = 1) {
   const rows = [];
 
   if (inventoryItems.length) {
-    const options = inventoryItems.slice(0, 25).map((item) => {
+    const options = inventoryItems.map((item) => {
       const powerBonus = getItemPowerBonus(item);
       const bonusText = powerBonus > 0 ? ` - +${formatNumber(powerBonus)} puissance` : '';
 
       return new StringSelectMenuOptionBuilder()
         .setLabel(item.name.slice(0, 100))
+        .setEmoji(item.emoji || '📦')
         .setDescription(`x${item.quantity} - revente ${formatNumber(item.sellPrice)} Joyaux${bonusText}`.slice(0, 100))
         .setValue(item.itemId);
     });
@@ -212,6 +214,12 @@ function getSellRows(inventoryItems) {
         .setLabel('Retour boutique')
         .setEmoji('↩️')
         .setStyle(ButtonStyle.Secondary),
+      new ButtonBuilder()
+        .setCustomId(`shop:sell-page:${Math.max(0, page - 1)}`)
+        .setLabel('Précédent').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
+      new ButtonBuilder()
+        .setCustomId(`shop:sell-page:${Math.min(totalPages - 1, page + 1)}`)
+        .setLabel('Suivant').setEmoji('➡️').setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1),
     ),
   );
 
@@ -280,7 +288,7 @@ async function renderShop(interaction, filterType = null, requestedPage = 0) {
   return interaction.reply(payload);
 }
 
-async function renderSellMenu(interaction) {
+async function renderSellMenu(interaction, requestedPage = 0) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
   if (!profile) {
@@ -292,21 +300,24 @@ async function renderSellMenu(interaction) {
 
   const inventoryItems = await getInventoryDetails(profile._id);
   const powerInfo = await getProfileShopPower(profile);
+  const totalPages = Math.max(1, Math.ceil(inventoryItems.length / SHOP_PAGE_SIZE));
+  const page = Math.max(0, Math.min(totalPages - 1, Number(requestedPage) || 0));
+  const pageItems = inventoryItems.slice(page * SHOP_PAGE_SIZE, (page + 1) * SHOP_PAGE_SIZE);
 
   const totalSellValue = inventoryItems.reduce(
     (total, item) => total + Number(item.sellPrice || 0) * Number(item.quantity || 0),
     0,
   );
 
-  const lines = inventoryItems.length
-    ? inventoryItems.slice(0, 8).map((item) => {
+  const lines = pageItems.length
+    ? pageItems.slice(0, 8).map((item) => {
       const slot = getItemEquipSlot(item);
       const slotText = slot ? ` - ${getEquipSlotLabel(slot)}` : '';
       const powerBonus = getItemPowerBonus(item);
       const bonusText = powerBonus > 0 ? ` - +${formatNumber(powerBonus)} puissance` : '';
       const equippedText = item.equipped ? ' - ÉQUIPÉ' : '';
 
-      return `${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - revente ${formatNumber(item.sellPrice)} Joyaux${equippedText}`;
+      return `${item.emoji || '📦'} ${item.name} x${item.quantity} - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - revente ${formatNumber(item.sellPrice)} Joyaux${equippedText}`;
     })
     : [
       'Ton inventaire est vide. Achète des objets dans la boutique ou demande au staff de t’en donner.',
@@ -319,7 +330,7 @@ async function renderSellMenu(interaction) {
     variant: 'shop',
     section: `Vente — ${profile.characterName}`,
     title: 'Revendre un objet',
-    subtitle: `Valeur totale de revente : ${formatNumber(totalSellValue)} Joyaux`,
+    subtitle: `Page ${page + 1}/${totalPages} - valeur totale : ${formatNumber(totalSellValue)} Joyaux`,
     stats: [
       { label: 'Joyaux', value: formatNumber(profile.jewels) },
       { label: 'Objets', value: formatNumber(inventoryItems.reduce((total, item) => total + item.quantity, 0)) },
@@ -333,7 +344,7 @@ async function renderSellMenu(interaction) {
   return interaction.update({
     ...createLargeCanvasPayload({
       attachment,
-      components: getSellRows(inventoryItems),
+      components: getSellRows(pageItems, page, totalPages),
     }),
   });
 }
@@ -457,6 +468,7 @@ async function handleShopComponent(interaction) {
   if (id === 'shop:back') return renderShop(interaction);
 
   if (id === 'shop:sell-menu') return renderSellMenu(interaction);
+  if (id.startsWith('shop:sell-page:')) return renderSellMenu(interaction, Number.parseInt(id.split(':').pop(), 10) || 0);
 
   if (id === 'shop:consommable') return renderShop(interaction, 'consommable');
   if (id === 'shop:equipement') return renderShop(interaction, 'equipement');

@@ -82,7 +82,7 @@ async function runDaily(interaction, type, rng = Math.random) {
 
   const attachment = await createPanelCanvas({
     fileName: 'fairy-slayer-daily.png',
-    variant: failed ? 'admin' : 'gacha',
+    variant: 'daily',
     section: `Daily — ${DAILY_LABELS[type]}`,
     title,
     subtitle: failed ? 'La prise de risque ne paie pas cette fois.' : 'Une nouvelle récompense rejoint ton compte gacha.',

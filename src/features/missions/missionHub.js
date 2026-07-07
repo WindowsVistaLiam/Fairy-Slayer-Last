@@ -87,6 +87,7 @@ function getMissionBoardRows(missions) {
   const options = missions.slice(0, 25).map((mission) => (
     new StringSelectMenuOptionBuilder()
       .setLabel(mission.title.slice(0, 100))
+      .setEmoji({ C: '📜', B: '🧭', A: '⚔️', S: '🔥', Sacré: '✨' }[mission.rank] || '📜')
       .setDescription(`Rang ${mission.rank} · ${mission.requiredPowerLevel} puissance · ${getMissionRewardText(mission)}`.slice(0, 100))
       .setValue(mission.missionId)
   ));

@@ -45,13 +45,13 @@ const {
   countProfiles,
 } = require('../../utils/activeProfile');
 
-const { normalizeMageRank } = require('../../utils/ranks');
 const { getReputationLabel } = require('../../utils/reputation');
 const { formatNumber, truncateText } = require('../../utils/format');
 const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
 const { getProfileSlotLimit } = require('../../utils/guildConfig');
 
 const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
+const INVENTORY_PAGE_SIZE = 25;
 
 function createCanvasEmbed(fileName, color = 0x7c5cff) {
   return new EmbedBuilder()
@@ -131,6 +131,12 @@ function getMainRows() {
         .setLabel('Métier')
         .setEmoji('🛠️')
         .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('profile:description')
+        .setLabel('Biographie')
+        .setEmoji('📝')
+        .setStyle(ButtonStyle.Secondary),
     ),
   ];
 }
@@ -183,6 +189,19 @@ function isValidHttpUrl(value) {
   } catch (_) {
     return false;
   }
+}
+
+function escapeRegex(value) {
+  return String(value || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+async function isCharacterNameTaken(guildId, characterName, excludedProfileId = null) {
+  const query = {
+    guildId,
+    characterName: { $regex: `^${escapeRegex(characterName)}$`, $options: 'i' },
+  };
+  if (excludedProfileId) query._id = { $ne: excludedProfileId };
+  return Profile.exists(query);
 }
 
 async function acknowledgeProfileInteraction(interaction) {
@@ -315,22 +334,22 @@ async function showCreateModal(interaction) {
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
-        .setCustomId('mageRank')
-        .setLabel('Mage de rang')
-        .setPlaceholder('C, B, A, S ou Sacré')
+        .setCustomId('gender')
+        .setLabel('Genre')
+        .setPlaceholder('Exemple : Femme, Homme, Non-binaire...')
         .setStyle(TextInputStyle.Short)
         .setRequired(false)
-        .setMaxLength(10),
+        .setMaxLength(40),
     ),
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
-        .setCustomId('powerLevel')
-        .setLabel('Niveau de puissance')
-        .setPlaceholder('Exemple : 1450')
+        .setCustomId('title')
+        .setLabel('Titre RP')
+        .setPlaceholder('Exemple : Mage errant')
         .setStyle(TextInputStyle.Short)
         .setRequired(false)
-        .setMaxLength(8),
+        .setMaxLength(80),
     ),
   );
 
@@ -350,22 +369,27 @@ async function handleCreateModal(interaction) {
 
   const characterName = interaction.fields.getTextInputValue('characterName').trim();
   const age = interaction.fields.getTextInputValue('age')?.trim() || 'Inconnu';
+  const gender = interaction.fields.getTextInputValue('gender')?.trim() || 'Non précisé';
   const magicType = interaction.fields.getTextInputValue('magicType').trim();
-  const mageRank = normalizeMageRank(interaction.fields.getTextInputValue('mageRank'));
-  const rawPower = interaction.fields.getTextInputValue('powerLevel')?.trim();
-  const powerLevel = Math.max(
-    0,
-    Math.min(999999, Number.parseInt(rawPower || '100', 10) || 100),
-  );
+  const title = interaction.fields.getTextInputValue('title')?.trim() || 'Mage errant';
+
+  if (!characterName || !magicType) {
+    return interaction.reply({ content: 'Le nom et la magie ne peuvent pas être vides.', flags: MessageFlags.Ephemeral });
+  }
+  if (await isCharacterNameTaken(interaction.guildId, characterName)) {
+    return interaction.reply({ content: 'Un personnage porte déjà ce nom sur ce serveur.', flags: MessageFlags.Ephemeral });
+  }
 
   const profile = await Profile.create({
     userId: interaction.user.id,
     guildId: interaction.guildId,
     characterName,
     age,
+    gender,
     magicType,
-    mageRank,
-    powerLevel,
+    title,
+    mageRank: 'C',
+    powerLevel: 100,
   });
 
   await getOrCreateInventory(profile._id);
@@ -388,6 +412,7 @@ async function showSwitchMenu(interaction) {
 
   const options = profiles.map((profile) => new StringSelectMenuOptionBuilder()
     .setLabel(truncateText(profile.characterName, 90))
+    .setEmoji('👤')
     .setDescription(
       `${profile.mageRank} · Puissance ${formatNumber(profile.powerLevel)} · Niveau ${profile.level}`.slice(0, 100),
     )
@@ -481,12 +506,12 @@ async function showEditModal(interaction) {
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
-        .setCustomId('guildName')
-        .setLabel('Guilde')
+        .setCustomId('age')
+        .setLabel('Âge')
         .setStyle(TextInputStyle.Short)
         .setRequired(false)
-        .setMaxLength(80)
-        .setValue(profile.guildName || ''),
+        .setMaxLength(40)
+        .setValue(profile.age || ''),
     ),
 
     new ActionRowBuilder().addComponents(
@@ -511,12 +536,12 @@ async function showEditModal(interaction) {
 
     new ActionRowBuilder().addComponents(
       new TextInputBuilder()
-        .setCustomId('description')
-        .setLabel('Courte description')
-        .setStyle(TextInputStyle.Paragraph)
+        .setCustomId('gender')
+        .setLabel('Genre')
+        .setStyle(TextInputStyle.Short)
         .setRequired(false)
-        .setMaxLength(1200)
-        .setValue(profile.description || ''),
+        .setMaxLength(40)
+        .setValue(profile.gender || ''),
     ),
   );
 
@@ -530,14 +555,53 @@ async function handleEditModal(interaction) {
     return openProfileHub(interaction);
   }
 
-  profile.characterName = interaction.fields.getTextInputValue('characterName').trim();
-  profile.guildName = interaction.fields.getTextInputValue('guildName')?.trim() || 'Sans guilde';
-  profile.magicType = interaction.fields.getTextInputValue('magicType').trim();
+  const characterName = interaction.fields.getTextInputValue('characterName').trim();
+  const magicType = interaction.fields.getTextInputValue('magicType').trim();
+  if (!characterName || !magicType) {
+    return interaction.reply({ content: 'Le nom et la magie ne peuvent pas être vides.', flags: MessageFlags.Ephemeral });
+  }
+  if (await isCharacterNameTaken(interaction.guildId, characterName, profile._id)) {
+    return interaction.reply({ content: 'Un personnage porte déjà ce nom sur ce serveur.', flags: MessageFlags.Ephemeral });
+  }
+
+  profile.characterName = characterName;
+  profile.age = interaction.fields.getTextInputValue('age')?.trim() || 'Inconnu';
+  profile.magicType = magicType;
   profile.title = interaction.fields.getTextInputValue('title')?.trim() || 'Mage errant';
-  profile.description = interaction.fields.getTextInputValue('description')?.trim() || 'Aucune description renseignée.';
+  profile.gender = interaction.fields.getTextInputValue('gender')?.trim() || 'Non précisé';
 
   await profile.save();
 
+  return openProfileHub(interaction);
+}
+
+async function showDescriptionModal(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+  if (!profile) return openProfileHub(interaction);
+
+  const modal = new ModalBuilder()
+    .setCustomId('profile:description:modal')
+    .setTitle('Modifier la biographie');
+
+  modal.addComponents(new ActionRowBuilder().addComponents(
+    new TextInputBuilder()
+      .setCustomId('description')
+      .setLabel('Description du personnage')
+      .setStyle(TextInputStyle.Paragraph)
+      .setRequired(false)
+      .setMaxLength(1200)
+      .setValue(profile.description || ''),
+  ));
+
+  return interaction.showModal(modal);
+}
+
+async function handleDescriptionModal(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+  if (!profile) return openProfileHub(interaction);
+
+  profile.description = interaction.fields.getTextInputValue('description')?.trim() || 'Aucune description renseignée.';
+  await profile.save();
   return openProfileHub(interaction);
 }
 
@@ -627,6 +691,7 @@ function getInventoryCategoryLabel(category = 'all') {
     lacrima: 'Lacrimas',
     rare: 'Objets rares',
     mission: 'Objets de mission',
+    materiau: 'Matériaux de craft',
   };
 
   return labels[category] || 'Tout l’inventaire';
@@ -678,6 +743,12 @@ function getInventoryCategoryRows(activeCategory = 'all') {
         .setStyle(getStyle('mission')),
 
       new ButtonBuilder()
+        .setCustomId('profile:inventory:materiau')
+        .setLabel('Matériaux')
+        .setEmoji('🧱')
+        .setStyle(getStyle('materiau')),
+
+      new ButtonBuilder()
         .setCustomId('profile:home')
         .setLabel('Retour profil')
         .setEmoji('↩️')
@@ -707,6 +778,7 @@ function getInventoryItemSelectRow(items) {
 
     return new StringSelectMenuOptionBuilder()
       .setLabel(item.name.slice(0, 100))
+      .setEmoji(item.emoji || '📦')
       .setDescription(`x${item.quantity} - ${getTypeLabel(item.type)} - ${getRarityLabel(item.rarity)}${bonusText}`.slice(0, 100))
       .setValue(item.itemId);
   });
@@ -719,7 +791,7 @@ function getInventoryItemSelectRow(items) {
   return new ActionRowBuilder().addComponents(select);
 }
 
-function getInventoryRowsWithSelect(items, activeCategory = 'all') {
+function getInventoryRowsWithSelect(items, activeCategory = 'all', page = 0, totalPages = 1) {
   const rows = [];
   const selectRow = getInventoryItemSelectRow(items);
 
@@ -727,10 +799,23 @@ function getInventoryRowsWithSelect(items, activeCategory = 'all') {
     rows.push(selectRow);
   }
 
-  return [
+  const result = [
     ...rows,
     ...getInventoryCategoryRows(activeCategory),
   ];
+
+  if (totalPages > 1) {
+    result.push(new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(`profile:inventory:page:${activeCategory}:${Math.max(0, page - 1)}`)
+        .setLabel('Précédent').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
+      new ButtonBuilder()
+        .setCustomId(`profile:inventory:page:${activeCategory}:${Math.min(totalPages - 1, page + 1)}`)
+        .setLabel('Suivant').setEmoji('➡️').setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1),
+    ));
+  }
+
+  return result;
 }
 
 function canUseInventoryItem(item) {
@@ -807,7 +892,7 @@ function getInventoryItemDetailRows(inventoryItems, item, ownedItem) {
   return rows;
 }
 
-async function showInventory(interaction, category = 'all') {
+async function showInventory(interaction, category = 'all', requestedPage = 0) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
   if (!profile) {
@@ -816,7 +901,10 @@ async function showInventory(interaction, category = 'all') {
 
   const summary = await getInventorySummary(profile._id);
   const filteredItems = filterInventoryItems(summary.items, category);
-  const lines = formatInventoryLines(filteredItems, 8);
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / INVENTORY_PAGE_SIZE));
+  const page = Math.max(0, Math.min(totalPages - 1, Number(requestedPage) || 0));
+  const pageItems = filteredItems.slice(page * INVENTORY_PAGE_SIZE, (page + 1) * INVENTORY_PAGE_SIZE);
+  const lines = formatInventoryLines(pageItems, 8);
 
   const filteredQuantity = filteredItems.reduce(
     (total, item) => total + Number(item.quantity || 0),
@@ -835,7 +923,7 @@ async function showInventory(interaction, category = 'all') {
     variant: 'inventory',
     section: `Inventaire — ${profile.characterName}`,
     title: getInventoryCategoryLabel(category),
-    subtitle: `${formatNumber(filteredQuantity)} objet(s) affiché(s) - valeur : ${formatNumber(filteredValue)} Joyaux`,
+    subtitle: `${formatNumber(filteredQuantity)} objet(s) - page ${page + 1}/${totalPages} - valeur : ${formatNumber(filteredValue)} Joyaux`,
     stats: [
       { label: 'Total', value: formatNumber(summary.totalQuantity) },
       { label: 'Bonus', value: `+${formatNumber(summary.equippedPowerBonus || 0)}` },
@@ -849,7 +937,7 @@ async function showInventory(interaction, category = 'all') {
   return interaction.update({
     ...createLargeCanvasPayload({
       attachment,
-      components: getInventoryRowsWithSelect(filteredItems, category),
+      components: getInventoryRowsWithSelect(pageItems, category, page, totalPages),
     }),
   });
 }
@@ -864,7 +952,7 @@ async function showEquipment(interaction) {
   const lines = slotKeys.map((slot) => {
     const item = slots[slot];
     if (!item) return `${getEquipSlotLabel(slot)} : aucun objet équipé`;
-    return `${getEquipSlotLabel(slot)} : ${item.name} — +${formatNumber(item.powerBonus || 0)} puissance`;
+    return `${item.emoji || '🛡️'} ${getEquipSlotLabel(slot)} : ${item.name} — +${formatNumber(item.powerBonus || 0)} puissance`;
   });
   const basePower = Number(profile.powerLevel || 0);
   const equipmentBonus = Number(summary.equippedPowerBonus || 0);
@@ -939,7 +1027,7 @@ async function showInventoryItem(interaction) {
     fileName,
     variant: 'inventory',
     section: `Objet — ${profile.characterName}`,
-    title: item.name,
+    title: `${item.emoji || '📦'} ${item.name}`,
     subtitle: item.description,
     stats: [
       { label: 'Quantité', value: formatNumber(ownedItem.quantity) },
@@ -1015,7 +1103,7 @@ async function useInventoryItem(interaction) {
     fileName,
     variant: 'inventory',
     section: `Objet utilisé — ${profile.characterName}`,
-    title: item.name,
+    title: `${item.emoji || '🧪'} ${item.name}`,
     subtitle: 'L’objet a été consommé avec succès.',
     stats: [
       { label: 'Utilisé', value: '1' },
@@ -1066,7 +1154,7 @@ async function equipInventoryItemAction(interaction) {
     fileName,
     variant: 'inventory',
     section: `Objet équipé — ${profile.characterName}`,
-    title: result.item.name,
+    title: `${result.item.emoji || '⚔️'} ${result.item.name}`,
     subtitle: 'L’objet a été équipé avec succès.',
     stats: [
       { label: 'Statut', value: 'Équipé' },
@@ -1119,7 +1207,7 @@ async function unequipInventoryItemAction(interaction) {
     fileName,
     variant: 'inventory',
     section: `Objet déséquipé — ${profile.characterName}`,
-    title: result.item.name,
+    title: `${result.item.emoji || '🛡️'} ${result.item.name}`,
     subtitle: 'L’objet a été déséquipé avec succès.',
     stats: [
       { label: 'Statut', value: 'Non équipé' },
@@ -1327,6 +1415,8 @@ module.exports = {
   handleSwitchSelect,
   showEditModal,
   handleEditModal,
+  showDescriptionModal,
+  handleDescriptionModal,
   showImageModal,
   handleImageModal,
   showInventory,

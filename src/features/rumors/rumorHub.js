@@ -156,6 +156,7 @@ async function getRumorRows(profile, interaction, rumors) {
     const options = rumors.slice(0, 25).map((rumor) => (
       new StringSelectMenuOptionBuilder()
         .setLabel(truncateText(rumor.content, 100))
+        .setEmoji({ positive: '✨', negative: '⚠️', neutral: '🗣️' }[rumor.type] || '🗣️')
         .setDescription(
           `${getRumorTypeLabel(rumor.type)} · crédibilité ${rumor.credibility}% · ${getRumorImpactText(rumor)}`.slice(0, 100),
         )

@@ -20,6 +20,7 @@ Commandes principales :
 ## Fonctionnalités
 
 - Profils multiples et personnage actif par joueur.
+- Identité modifiable (nom, âge, genre, magie, titre et biographie), avec guilde gérée exclusivement par `/guilde`.
 - Fiche de personnage en grand Canvas avec statistiques, image et équipement.
 - Rangs `C`, `B`, `A`, `S` et `Sacré`.
 - XP RP automatique uniquement dans les salons configurés, avec cooldown et longueur minimale réglables.
@@ -37,6 +38,7 @@ Commandes principales :
 - Guildes RP liées au personnage actif, avec classement, candidatures, invitations, exclusions, rangs et permissions déléguées.
 - Salon de logs configurable pour les actions importantes.
 - Interfaces `/profil` et `/admin` en grand Canvas.
+- Identité visuelle illustrée : emojis par objet, métier et rareté, emblèmes thématiques pour guildes, craft, missions, combats et informations.
 - Panneaux Canvas adaptatifs aux contenus longs.
 - Inspection détaillée d’un profil depuis `/admin`, sans modification des données.
 - Gacha Fairy Tail persistant avec 299 cartes et cinq raretés.

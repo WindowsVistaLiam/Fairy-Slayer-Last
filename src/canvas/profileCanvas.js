@@ -10,10 +10,16 @@ const { getReputationLabel } = require('../utils/reputation');
 const { formatNumber, truncateText } = require('../utils/format');
 const { getInventorySummary, getProfilePowerWithEquipment } = require('../utils/inventoryUtils');
 const { getProfessionLabel } = require('../utils/professions');
+const { getProfession } = require('../data/professions');
 
 const FONT_TITLE_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'crown_title', 'CROWNT.TTF');
 const FONT_REGULAR_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Marcellus', 'Marcellus-Regular.ttf');
 const FONT_BOLD_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Cinzel', 'static', 'Cinzel-Bold.ttf');
+const EMOJI_FONT_PATHS = [
+  'C:/Windows/Fonts/seguiemj.ttf',
+  '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',
+  '/usr/share/fonts/opentype/noto/NotoColorEmoji.ttf',
+];
 
 const LOGO_PATH = path.join(__dirname, '..', 'assets', 'fairy-slayer-logo.png');
 
@@ -48,6 +54,9 @@ function ensureFonts() {
     } else {
       console.warn('⚠️ Police bold manquante : src/assets/fonts/Cinzel/static/Cinzel-Bold.ttf');
     }
+
+    const emojiPath = EMOJI_FONT_PATHS.find((fontPath) => fs.existsSync(fontPath));
+    if (emojiPath) GlobalFonts.registerFromPath(emojiPath, 'FairyProfileEmoji');
   } catch (error) {
     console.error('❌ Erreur chargement polices Canvas :', error);
   }
@@ -64,7 +73,7 @@ function setFont(ctx, size = 24, style = 'regular') {
 
   const family = getFontFamily(style);
 
-  ctx.font = `${size}px "${family}"`;
+  ctx.font = `${size}px "${family}", "FairyProfileEmoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif`;
   ctx.textBaseline = 'top';
   ctx.textAlign = 'left';
 }
@@ -358,7 +367,7 @@ function getShortSlotName(item, fallback) {
   const bonus = Number(item.powerBonus || 0);
   const bonusText = bonus > 0 ? ` +${bonus}` : '';
 
-  return truncateText(`${item.name}${bonusText}`, 23);
+  return truncateText(`${item.emoji || '📦'} ${item.name}${bonusText}`, 23);
 }
 
 async function getEquippedProfileItems(profile) {
@@ -410,6 +419,9 @@ async function createProfileCanvas(profile, discordUser) {
   const guildName = profile?.guildName || 'Guilde inconnue';
   const title = profile?.title || 'Aucun titre';
   const age = profile?.age || 'Inconnu';
+  const gender = profile?.gender || 'Non précisé';
+  const professionLabel = getProfessionLabel(profile?.profession);
+  const professionEmoji = getProfession(profile?.profession)?.emoji || '✨';
   const description = profile?.description || 'Aucune description renseignée.';
   const mageRank = profile?.mageRank || 'C';
   const basePowerLevel = Number(profile?.powerLevel || 0);
@@ -486,6 +498,7 @@ async function createProfileCanvas(profile, discordUser) {
 
   drawText(ctx, `Mage de rang ${mageRank}`, 880, 104, 21, '#ffffff', 'bold');
   drawText(ctx, getRankLabel(mageRank), 880, 132, 33, '#ffcf63', 'bold');
+  drawText(ctx, `${professionEmoji} Métier : ${professionLabel}`, 880, 171, 18, '#e8e7ff', 'regular');
 
   const logo = await loadLocalImage(LOGO_PATH);
 
@@ -547,11 +560,11 @@ async function createProfileCanvas(profile, discordUser) {
 
   drawCenteredText(ctx, `Niveau RP ${level}`, avatarX + 28, avatarY + avatarH - 47, avatarW - 56, 22, '#ffcf63', 'bold');
 
-  drawInfoBox(ctx, 'MAGIE', truncateText(magicType, 26), 470, 240, 380, 78, '#ff7a4e');
-  drawInfoBox(ctx, 'GUILDE', truncateText(guildName, 26), 880, 240, 380, 78, '#3bd6ff');
+  drawInfoBox(ctx, '✨ MAGIE', truncateText(magicType, 26), 470, 240, 380, 78, '#ff7a4e');
+  drawInfoBox(ctx, '🏰 GUILDE', truncateText(guildName, 26), 880, 240, 380, 78, '#3bd6ff');
 
-  drawInfoBox(ctx, 'TITRE', truncateText(title, 30), 470, 338, 380, 78, '#ffcf63');
-  drawInfoBox(ctx, 'ÂGE / MÉTIER', truncateText(`${age} · ${getProfessionLabel(profile?.profession)}`, 30), 880, 338, 380, 78, '#7f5cff');
+  drawInfoBox(ctx, '👑 TITRE', truncateText(title, 30), 470, 338, 380, 78, '#ffcf63');
+  drawInfoBox(ctx, '👤 ÂGE / GENRE', truncateText(`${age} · ${gender}`, 30), 880, 338, 380, 78, '#7f5cff');
 
   roundRect(ctx, 470, 430, 790, 102, 22);
   ctx.fillStyle = 'rgba(10, 14, 30, 0.88)';
@@ -560,7 +573,7 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, 'NIVEAU DE PUISSANCE', 496, 446, 18, '#cec6f6', 'bold');
+  drawText(ctx, '⚔️ NIVEAU DE PUISSANCE', 496, 446, 18, '#cec6f6', 'bold');
   drawText(ctx, formatNumber(powerLevel), 496, 474, 42, '#ffcf63', 'bold');
 
   const bonusLabel = equipmentBonus > 0
@@ -577,7 +590,7 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawText(ctx, `Progression du niveau ${level}`, 496, 568, 20, '#ffffff', 'bold');
+  drawText(ctx, `📈 Progression du niveau ${level}`, 496, 568, 20, '#ffffff', 'bold');
   drawText(ctx, `${formatNumber(xp)} / ${formatNumber(xpNeeded)} XP`, 965, 568, 17, '#cec6f6', 'bold');
   drawBar(ctx, 496, 604, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
 
@@ -587,7 +600,7 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.strokeStyle = 'rgba(255,255,255,0.10)';
   ctx.stroke();
 
-  drawText(ctx, 'DESCRIPTION', 122, 671, 14, '#cec6f6', 'bold');
+  drawText(ctx, '📖 DESCRIPTION', 122, 671, 14, '#cec6f6', 'bold');
   drawWrappedText(ctx, description, 122, 693, 675, 17, 1, 15, '#ffffff');
 
   drawText(
@@ -612,11 +625,11 @@ async function createProfileCanvas(profile, discordUser) {
     675,
   );
 
-  drawInfoBox(ctx, 'JOYAUX', formatNumber(jewels), 850, 660, 180, 84, '#ffcf63');
+  drawInfoBox(ctx, '💰 JOYAUX', formatNumber(jewels), 850, 660, 180, 84, '#ffcf63');
 
   drawInfoBox(
     ctx,
-    'RÉPUTATION',
+    '⭐ RÉPUTATION',
     `${reputation} · ${getReputationLabel(reputation)}`,
     1050,
     660,

@@ -6,6 +6,11 @@ const { AttachmentBuilder } = require('discord.js');
 const LOGO_PATH = path.join(__dirname, '..', 'assets', 'fairy-slayer-logo.png');
 const FONT_REGULAR_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Marcellus', 'Marcellus-Regular.ttf');
 const FONT_BOLD_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Cinzel', 'static', 'Cinzel-Bold.ttf');
+const EMOJI_FONT_PATHS = [
+  'C:/Windows/Fonts/seguiemj.ttf',
+  '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',
+  '/usr/share/fonts/opentype/noto/NotoColorEmoji.ttf',
+];
 const FONT_REGULAR = 'FairyGachaRegular';
 const FONT_BOLD = 'FairyGachaBold';
 const remoteImageCache = new Map();
@@ -17,6 +22,14 @@ function ensureFonts() {
   fontsLoaded = true;
   if (fs.existsSync(FONT_REGULAR_PATH)) GlobalFonts.registerFromPath(FONT_REGULAR_PATH, FONT_REGULAR);
   if (fs.existsSync(FONT_BOLD_PATH)) GlobalFonts.registerFromPath(FONT_BOLD_PATH, FONT_BOLD);
+  const emojiPath = EMOJI_FONT_PATHS.find((fontPath) => fs.existsSync(fontPath));
+  if (emojiPath) {
+    try {
+      GlobalFonts.registerFromPath(emojiPath, 'FairyGachaEmoji');
+    } catch (_) {
+      // Le rendu texte reste disponible si la police emoji système est incompatible.
+    }
+  }
 }
 
 function roundRect(ctx, x, y, width, height, radius = 20) {
@@ -26,7 +39,7 @@ function roundRect(ctx, x, y, width, height, radius = 20) {
 
 function setFont(ctx, size, style = 'regular') {
   const family = style === 'bold' ? FONT_BOLD : FONT_REGULAR;
-  ctx.font = `${size}px "${family}", Arial, sans-serif`;
+  ctx.font = `${size}px "${family}", "FairyGachaEmoji", "Segoe UI Emoji", "Noto Color Emoji", Arial, sans-serif`;
 }
 
 function fitText(ctx, text, maxWidth, startSize, minSize = 14, style = 'regular') {
@@ -127,7 +140,7 @@ function drawCard(ctx, result, x, y, width, height, detailed = false, cardImage 
   drawText(ctx, card.title, x + width / 2, y + (detailed ? 425 : 171), width - 30, detailed ? 29 : 15, '#ddd6ff', 'center');
   drawText(ctx, card.rarityLabel, x + width / 2, y + (detailed ? 475 : 204), width - 24, detailed ? 28 : 15, accent, 'center', 'bold');
 
-  const status = statusLabel || (isNew ? 'NOUVELLE CARTE' : `DOUBLON  +${fragmentsEarned} fragments`);
+  const status = statusLabel || (isNew ? '🌟 NOUVELLE CARTE' : `💎 DOUBLON  +${fragmentsEarned} fragments`);
   roundRect(ctx, x + 14, y + height - (detailed ? 70 : 42), width - 28, detailed ? 46 : 28, 12);
   ctx.fillStyle = isNew ? 'rgba(87, 242, 135, 0.20)' : 'rgba(255, 209, 102, 0.18)';
   ctx.fill();
@@ -168,7 +181,7 @@ async function createGachaResultCanvas(results, summary = {}) {
     ctx.fill();
   }
 
-  drawText(ctx, 'FAIRY SLAYER — INVOCATION', 55, 38, 1100, 42, '#ffd166', 'left', 'bold');
+  drawText(ctx, '✨ FAIRY SLAYER — INVOCATION', 55, 38, 1100, 42, '#ffd166', 'left', 'bold');
   drawText(ctx, summary.paymentLabel || 'Tirage', 58, 88, 900, 21, '#d8d2f4');
   await drawLogo(ctx, width);
   const cardImages = await Promise.all(results.map((result) => loadRemoteCardImage(result.card.imageUrl)));
@@ -191,7 +204,7 @@ async function createGachaResultCanvas(results, summary = {}) {
 
   drawText(
     ctx,
-    summary.footerText || `${summary.newCount || 0} nouvelle(s) carte(s) • ${summary.duplicateCount || 0} doublon(s) • +${summary.fragmentsEarned || 0} fragments`,
+    summary.footerText || `🌟 ${summary.newCount || 0} nouvelle(s) carte(s) • 🃏 ${summary.duplicateCount || 0} doublon(s) • 💎 +${summary.fragmentsEarned || 0} fragments`,
     width / 2,
     height - 52,
     width - 120,

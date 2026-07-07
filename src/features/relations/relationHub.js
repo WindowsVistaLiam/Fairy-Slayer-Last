@@ -109,6 +109,7 @@ async function getRelationRows(profile) {
 
       return new StringSelectMenuOptionBuilder()
         .setLabel(truncateText(target?.characterName || 'Personnage inconnu', 100))
+        .setEmoji({ ami: '💚', allie: '🤝', rival: '⚔️', ennemi: '🔥', famille: '🏠', mentor: '📖', eleve: '✨', amour: '💞' }[relation.type] || '👤')
         .setDescription(
           `${getRelationTypeLabel(relation.type)} · confiance ${relation.trust} · tension ${relation.tension}`.slice(0, 100),
         )

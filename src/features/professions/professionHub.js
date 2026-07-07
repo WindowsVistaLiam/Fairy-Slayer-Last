@@ -27,6 +27,7 @@ async function openProfessionHub(interaction) {
         .setPlaceholder('Choisir un métier permanent')
         .addOptions(PROFESSIONS.map((entry) => new StringSelectMenuOptionBuilder()
           .setLabel(entry.name)
+          .setEmoji(entry.emoji)
           .setDescription(entry.description.slice(0, 100))
           .setValue(entry.id))),
     ));
@@ -37,16 +38,16 @@ async function openProfessionHub(interaction) {
 
   const attachment = await createPanelCanvas({
     fileName: 'fairy-slayer-metier.png',
-    variant: 'shop',
+    variant: 'profession',
     section: `Métier - ${profile.characterName}`,
-    title: profession?.name || 'Choisis ta vocation',
+    title: profession ? `${profession.emoji} ${profession.name}` : '✨ Choisis ta vocation',
     subtitle: profession ? profession.description : 'Ce choix est permanent pour ce personnage.',
     lines: profession
       ? [
         profession.craftCategory ? `Artisanat débloqué : ${profession.craftCategory}` : 'Ce métier accorde un bonus passif.',
         profession.id === 'barde' ? `Progression : ${profile.professionProgress?.bardLongMessages || 0}/10 messages longs` : 'Le bonus est appliqué automatiquement.',
       ]
-      : PROFESSIONS.map((entry) => `${entry.name} - ${entry.description}`),
+      : PROFESSIONS.map((entry) => `${entry.emoji} ${entry.name} - ${entry.description}`),
     footer: profession?.craftCategory ? 'Utilise /craft pour ouvrir ton atelier.' : 'Le métier est lié au personnage actif.',
   });
 

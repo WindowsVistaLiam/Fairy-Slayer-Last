@@ -36,7 +36,7 @@ async function applyTreasurerDailyIncome(profile, now = new Date()) {
   const nextJewels = Math.floor(previousJewels * (1.05 ** elapsedDays));
   const nextPayoutAt = new Date(new Date(lastPayout).getTime() + elapsedDays * DAY_MS);
   const payout = await profile.constructor.updateOne(
-    { _id: profile._id, profession: 'tresorier', 'professionProgress.lastTreasurerPayoutAt': lastPayout },
+    { _id: profile._id, profession: 'tresorier', jewels: previousJewels, 'professionProgress.lastTreasurerPayoutAt': lastPayout },
     { $set: { jewels: nextJewels, 'professionProgress.lastTreasurerPayoutAt': nextPayoutAt } },
   );
 
