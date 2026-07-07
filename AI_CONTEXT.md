@@ -6,7 +6,7 @@ Fairy Slayer est un bot Discord RP Fairy Tail.
 
 - Stack : Node.js 22+, discord.js v14, MongoDB Atlas, Mongoose, `@napi-rs/canvas` et Railway.
 - Repo : https://github.com/WindowsVistaLiam/Fairy-Slayer-Last
-- Commandes principales : `/profil`, `/boutique`, `/classement`, `/admin`, `/gacha`, `/collection`, `/cartes`.
+- Commandes principales : `/profil`, `/guilde`, `/boutique`, `/classement`, `/admin`, `/gacha`, `/collection`, `/cartes`.
 - Architecture : commandes fines dans `src/commands`, logique dans `src/features`, modèles Mongoose dans `src/models`, événements dans `src/events`, Canvas dans `src/canvas`.
 
 Le `README.md` sert de référence fonctionnelle et de source d’idées. Le code et ce fichier restent les sources de vérité pour l’état actuel.
@@ -32,6 +32,7 @@ Le `README.md` sert de référence fonctionnelle et de source d’idées. Le cod
 ## Fonctionnalités terminées
 
 - Profils multiples par utilisateur et profil actif.
+- Guildes RP par personnage : création, invitations, membres, exclusions, rangs personnalisés et permissions déléguées.
 - Carte de profil grand Canvas : image, statistiques, équipement, lacrima et puissance totale.
 - Inventaire MongoDB réel, consommables, achat, vente, équipement et déséquipement.
 - Slots d’équipement : Arme, Tenue, Accessoire et Lacrima.

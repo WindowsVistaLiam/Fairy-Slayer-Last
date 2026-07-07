@@ -9,6 +9,7 @@ const relationHub = require('../features/relations/relationHub');
 const rumorHub = require('../features/rumors/rumorHub');
 const gachaHub = require('../features/gacha/gachaHub');
 const combatHub = require('../features/combat/combatHub');
+const guildHub = require('../features/guild/guildHub');
 
 const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -129,6 +130,9 @@ async function handleComponentInteraction(interaction) {
   if (id.startsWith('gacha:')) return gachaHub.handleGachaComponent(interaction);
   if (id.startsWith('combat:')) return combatHub.handleCombatComponent(interaction);
 
+  // Guildes RP
+  if (id.startsWith('guild:')) return guildHub.handleGuildComponent(interaction);
+
   return safeEphemeralReply(interaction, `Interaction inconnue : \`${id}\``);
 }
 
@@ -148,6 +152,9 @@ async function handleModalInteraction(interaction) {
 
   // Admin
   if (id.startsWith('admin:')) return adminHub.handleAdminModal(interaction);
+
+  // Guildes RP
+  if (id.startsWith('guild:')) return guildHub.handleGuildModal(interaction);
 
   return safeEphemeralReply(interaction, `Formulaire inconnu : \`${id}\``);
 }

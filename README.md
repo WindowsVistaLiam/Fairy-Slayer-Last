@@ -5,6 +5,7 @@ Fairy Slayer est un bot Discord RP inspiré de Fairy Tail, construit avec Node.j
 Commandes principales :
 
 - `/profil` : personnage actif, profils multiples, inventaire, équipement, missions, relations, rumeurs et réputation.
+- `/guilde` : création et gestion des guildes RP, invitations, membres et rangs personnalisés.
 - `/boutique` : achat et vente d’objets, avec prix influencés par la réputation et les rumeurs.
 - `/classement` : classements par personnage.
 - `/admin` : gestion staff des profils, de la progression, des inventaires et de la configuration serveur.
@@ -29,6 +30,7 @@ Commandes principales :
 - Relations, réputation et rumeurs influençant la boutique.
 - Rôles staff configurables.
 - Slots de profils configurables selon les rôles Discord.
+- Guildes RP liées au personnage actif, avec invitations, exclusions, rangs et permissions déléguées.
 - Salon de logs configurable pour les actions importantes.
 - Interfaces `/profil` et `/admin` en grand Canvas.
 - Panneaux Canvas adaptatifs aux contenus longs.

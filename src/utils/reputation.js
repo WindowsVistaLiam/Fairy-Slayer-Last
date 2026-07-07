@@ -5,7 +5,7 @@ function getReputationLabel(value) {
   if (value < 10) return 'Neutre';
   if (value < 40) return 'Apprécié';
   if (value < 75) return 'Respecté';
-  return 'Légende de guilde';
+  return 'Légende du continent';
 }
 
 function clampReputation(value) {
