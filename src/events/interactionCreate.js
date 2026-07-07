@@ -1,10 +1,14 @@
 const { MessageFlags } = require('discord.js');
 
 const { handleComponentInteraction, handleModalInteraction } = require('../interactions/router');
+const { sendInteractionLog } = require('../utils/discordLogs');
 
 module.exports = {
   name: 'interactionCreate',
   async execute(interaction, client) {
+    const startedAt = Date.now();
+    let interactionError = null;
+
     try {
       if (interaction.isChatInputCommand()) {
         const command = client.commands.get(interaction.commandName);
@@ -26,6 +30,7 @@ module.exports = {
 
       return null;
     } catch (error) {
+      interactionError = error;
       console.error('❌ Erreur interactionCreate :', error);
 
       const payload = {
@@ -38,6 +43,11 @@ module.exports = {
       }
 
       return interaction.reply(payload).catch(() => null);
+    } finally {
+      await sendInteractionLog(interaction, {
+        durationMs: Date.now() - startedAt,
+        error: interactionError,
+      }).catch((error) => console.error('❌ Erreur du journal des interactions :', error));
     }
   },
 };

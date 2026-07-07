@@ -246,9 +246,73 @@ const CRAFTED_ITEMS = [
 
 ITEMS.push(...MATERIAL_ITEMS, ...CRAFTED_ITEMS);
 
+const ITEM_EMOJIS = {
+  potion_soin_mineure: '🩹',
+  potion_magique: '🧪',
+  epee_mage_fer: '⚔️',
+  lacrima_feu_mineure: '🔥',
+  cape_mage_voyageur: '🧥',
+  bracelet_guilde_argent: '📿',
+  fragment_lacrima_sacree: '✨',
+  elixir_endurance: '🏃',
+  grimoire_apprenti: '📕',
+  manteau_guilde_renforce: '🥋',
+  anneau_flux_magique: '💍',
+  lacrima_vent_celeste: '🌪️',
+  lame_draconique_ecarlate: '🗡️',
+  armure_constellation: '🌌',
+  talisman_esprit_ancien: '🯿',
+  lacrima_arcane_primordiale: '🔮',
+  sceau_guilde_noire: '🕷️',
+  ecaille_dragon_ancien: '🐲',
+  potion_soin_majeure: '💖',
+  herbe_lune: '🌿',
+  racine_mandragore: '🪚',
+  eau_lacrima: '💧',
+  poussiere_etoile: '⭐',
+  lingot_fer: '🔩',
+  acier_magique: '⚙️',
+  mithril: '🪙',
+  ecaille_draconique: '🐉',
+  cuir_renforce: '🟤',
+  tissu_enchante: '🧶',
+  fil_argent: '🪡',
+  plaque_runique: '🔰',
+  parchemin_vierge: '📜',
+  encre_magique: '🖋️',
+  cristal_memoire: '💠',
+  plume_phenix: '🪶',
+  potion_vigueur: '💪',
+  antidote_arcane: '⚕️',
+  elixir_celerite: '⚡',
+  potion_peau_pierre: '🪨',
+  essence_draconique: '🌋',
+  panacee_celeste: '🌟',
+  sabre_acier_magique: '🔪',
+  lance_vent: '🔱',
+  marteau_runique: '🔨',
+  arc_lunaire: '🏹',
+  lame_mithril: '💫',
+  espadon_dragon: '🦖',
+  armure_cuir_mage: '🦺',
+  robe_enchantee: '👘',
+  cuirasse_runique: '🛡️',
+  manteau_lunaire: '🌙',
+  armure_mithril: '🪖',
+  armure_draconique: '🐊',
+  grimoire_soins: '📗',
+  livre_flammes: '📙',
+  codex_vent: '🍃',
+  tome_runique: '📘',
+  grimoire_celeste: '☄️',
+  codex_draconique: '📓',
+};
+
 function getItemEmoji(item) {
   if (!item) return '📦';
   const id = String(item.itemId || '');
+
+  if (ITEM_EMOJIS[id]) return ITEM_EMOJIS[id];
 
   if (/potion|elixir|antidote|panacee|essence/.test(id)) return /soin|panacee/.test(id) ? '💖' : '🧪';
   if (/grimoire|livre|codex|tome/.test(id)) return '📖';
