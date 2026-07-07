@@ -82,6 +82,19 @@ async function handleComponentInteraction(interaction) {
     return null;
   }
 
+  if (id === 'profile:navigation') {
+    const target = interaction.values?.[0];
+    if (target === 'profile:home') return profileHub.openProfileHub(interaction);
+    if (target === 'profile:inventory') return profileHub.showInventory(interaction, 'all');
+    if (target === 'profile:equipment') return profileHub.showEquipment(interaction);
+    if (target === 'profile:missions') return missionHub.showMissionBoard(interaction);
+    if (target === 'profile:relations') return relationHub.showRelations(interaction);
+    if (target === 'profile:rumors') return rumorHub.showRumors(interaction);
+    if (target === 'profile:reputation') return profileHub.showReputation(interaction);
+    if (target === 'profession:home') return professionHub.openProfessionHub(interaction);
+    if (target === 'craft:home') return craftHub.openCraftHub(interaction);
+  }
+
   // Profil principal
   if (id === 'profile:home') return profileHub.openProfileHub(interaction);
   if (id === 'profile:create') return profileHub.showCreateModal(interaction);

@@ -39,6 +39,8 @@ Commandes principales :
 - Salon de logs configurable pour les actions importantes.
 - Interfaces `/profil` et `/admin` en grand Canvas.
 - Identité visuelle illustrée : emojis par objet, métier et rareté, emblèmes thématiques pour guildes, craft, missions, combats et informations.
+- La carte profil utilise des pictogrammes vectoriels locaux, sans dépendance aux polices emoji du système ou de Railway.
+- Navigation `/profil` compacte via un menu déroulant unique, avec les actions d’édition conservées sur une seule rangée.
 - Panneaux Canvas adaptatifs aux contenus longs.
 - Inspection détaillée d’un profil depuis `/admin`, sans modification des données.
 - Gacha Fairy Tail persistant avec 299 cartes et cinq raretés.

@@ -62,44 +62,23 @@ function createCanvasEmbed(fileName, color = 0x7c5cff) {
 function getMainRows() {
   return [
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('profile:home')
-        .setLabel('Profil')
-        .setEmoji('👤')
-        .setStyle(ButtonStyle.Primary),
-
-      new ButtonBuilder()
-        .setCustomId('profile:inventory')
-        .setLabel('Inventaire')
-        .setEmoji('🎒')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId('profile:missions')
-        .setLabel('Missions')
-        .setEmoji('📜')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId('profile:relations')
-        .setLabel('Relations')
-        .setEmoji('🤝')
-        .setStyle(ButtonStyle.Secondary),
+      new StringSelectMenuBuilder()
+        .setCustomId('profile:navigation')
+        .setPlaceholder('Naviguer dans le profil')
+        .addOptions(
+          new StringSelectMenuOptionBuilder().setLabel('Profil').setDescription('Afficher la fiche du personnage actif').setEmoji('👤').setValue('profile:home'),
+          new StringSelectMenuOptionBuilder().setLabel('Inventaire').setDescription('Consulter et utiliser les objets possédés').setEmoji('🎒').setValue('profile:inventory'),
+          new StringSelectMenuOptionBuilder().setLabel('Équipement').setDescription('Voir les quatre objets actuellement équipés').setEmoji('🛡️').setValue('profile:equipment'),
+          new StringSelectMenuOptionBuilder().setLabel('Missions').setDescription('Ouvrir le tableau et les missions actives').setEmoji('📜').setValue('profile:missions'),
+          new StringSelectMenuOptionBuilder().setLabel('Relations').setDescription('Gérer les liens entre personnages').setEmoji('🤝').setValue('profile:relations'),
+          new StringSelectMenuOptionBuilder().setLabel('Rumeurs').setDescription('Consulter les rumeurs du personnage').setEmoji('🗣️').setValue('profile:rumors'),
+          new StringSelectMenuOptionBuilder().setLabel('Réputation').setDescription('Voir le statut et son historique').setEmoji('⭐').setValue('profile:reputation'),
+          new StringSelectMenuOptionBuilder().setLabel('Métier').setDescription('Consulter la vocation du personnage').setEmoji('🛠️').setValue('profession:home'),
+          new StringSelectMenuOptionBuilder().setLabel('Atelier').setDescription('Fabriquer les objets du métier artisanal').setEmoji('⚒️').setValue('craft:home'),
+        ),
     ),
 
     new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('profile:rumors')
-        .setLabel('Rumeurs')
-        .setEmoji('🗣️')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId('profile:reputation')
-        .setLabel('Réputation')
-        .setEmoji('⭐')
-        .setStyle(ButtonStyle.Secondary),
-
       new ButtonBuilder()
         .setCustomId('profile:switch')
         .setLabel('Changer')
@@ -111,31 +90,17 @@ function getMainRows() {
         .setLabel('Modifier')
         .setEmoji('⚙️')
         .setStyle(ButtonStyle.Secondary),
-    ),
-
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('profile:equipment')
-        .setLabel('Équipement')
-        .setEmoji('🛡️')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId('profile:image')
-        .setLabel('Modifier l’image')
-        .setEmoji('🖼️')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId('profession:home')
-        .setLabel('Métier')
-        .setEmoji('🛠️')
-        .setStyle(ButtonStyle.Secondary),
 
       new ButtonBuilder()
         .setCustomId('profile:description')
         .setLabel('Biographie')
         .setEmoji('📝')
+        .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('profile:image')
+        .setLabel('Image')
+        .setEmoji('🖼️')
         .setStyle(ButtonStyle.Secondary),
     ),
   ];
