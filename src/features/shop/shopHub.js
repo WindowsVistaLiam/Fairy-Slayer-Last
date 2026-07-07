@@ -14,6 +14,9 @@ const { createPanelCanvas } = require('../../canvas/panelCanvas');
 const { getActiveProfile } = require('../../utils/activeProfile');
 const { formatNumber } = require('../../utils/format');
 const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
+const { applyMerchantDiscount, getProfessionLabel } = require('../../utils/professions');
+
+const SHOP_PAGE_SIZE = 25;
 
 const {
   addItemToInventory,
@@ -120,7 +123,8 @@ function calculateShopPrice(basePrice, profile, rumors = []) {
     }
   }
 
-  return Math.max(1, Math.floor(basePrice * multiplier));
+  const adjustedPrice = Math.max(1, Math.floor(basePrice * multiplier));
+  return applyMerchantDiscount(adjustedPrice, profile.profession);
 }
 
 function formatShopItemLine(item, finalPrice, availability) {
@@ -133,8 +137,8 @@ function formatShopItemLine(item, finalPrice, availability) {
   return `${item.name} - ${formatNumber(finalPrice)} Joyaux - ${getTypeLabel(item.type)}${slotText} - ${getRarityLabel(item.rarity)}${bonusText} - ${status}`;
 }
 
-function getBuyRows(items, profile, rumors, powerInfo) {
-  const options = items.slice(0, 25).map((item) => {
+function getBuyRows(items, profile, rumors, powerInfo, filterType, page, totalPages) {
+  const options = items.map((item) => {
     const finalPrice = calculateShopPrice(item.basePrice, profile, rumors);
     const availability = canBuyItem(profile, item, powerInfo);
     const powerBonus = getItemPowerBonus(item);
@@ -157,39 +161,24 @@ function getBuyRows(items, profile, rumors, powerInfo) {
     rows.push(new ActionRowBuilder().addComponents(select));
   }
 
-  rows.push(
-    new ActionRowBuilder().addComponents(
-      new ButtonBuilder()
-        .setCustomId('shop:refresh')
-        .setLabel('Tout')
-        .setEmoji('🏪')
-        .setStyle(ButtonStyle.Primary),
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('shop:view:all:0').setLabel('Tout').setEmoji('🏪').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('shop:view:consommable:0').setLabel('Consommables').setEmoji('🧪').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('shop:view:equipement:0').setLabel('Équipements').setEmoji('🛡️').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('shop:view:lacrima:0').setLabel('Lacrimas').setEmoji('💠').setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder().setCustomId('shop:view:materiau:0').setLabel('Matériaux').setEmoji('🧱').setStyle(ButtonStyle.Secondary),
+  ));
 
-      new ButtonBuilder()
-        .setCustomId('shop:consommable')
-        .setLabel('Consommables')
-        .setEmoji('🧪')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId('shop:equipement')
-        .setLabel('Équipements')
-        .setEmoji('🛡️')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId('shop:lacrima')
-        .setLabel('Lacrimas')
-        .setEmoji('💠')
-        .setStyle(ButtonStyle.Secondary),
-
-      new ButtonBuilder()
-        .setCustomId('shop:sell-menu')
-        .setLabel('Vendre')
-        .setEmoji('💰')
-        .setStyle(ButtonStyle.Success),
-    ),
-  );
+  const filterKey = filterType || 'all';
+  rows.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder()
+      .setCustomId(`shop:view:${filterKey}:${Math.max(0, page - 1)}`)
+      .setLabel('Précédent').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
+    new ButtonBuilder()
+      .setCustomId(`shop:view:${filterKey}:${Math.min(totalPages - 1, page + 1)}`)
+      .setLabel('Suivant').setEmoji('➡️').setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1),
+    new ButtonBuilder().setCustomId('shop:sell-menu').setLabel('Vendre').setEmoji('💰').setStyle(ButtonStyle.Success),
+  ));
 
   return rows;
 }
@@ -229,7 +218,7 @@ function getSellRows(inventoryItems) {
   return rows;
 }
 
-async function renderShop(interaction, filterType = null) {
+async function renderShop(interaction, filterType = null, requestedPage = 0) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
 
   if (!profile) {
@@ -248,7 +237,11 @@ async function renderShop(interaction, filterType = null) {
     items = items.filter((item) => item.type === filterType);
   }
 
-  const lines = items.slice(0, 8).map((item) => {
+  const totalPages = Math.max(1, Math.ceil(items.length / SHOP_PAGE_SIZE));
+  const page = Math.max(0, Math.min(totalPages - 1, Number(requestedPage) || 0));
+  const pageItems = items.slice(page * SHOP_PAGE_SIZE, (page + 1) * SHOP_PAGE_SIZE);
+
+  const lines = pageItems.slice(0, 8).map((item) => {
     const finalPrice = calculateShopPrice(item.basePrice, profile, rumors);
     const availability = canBuyItem(profile, item, powerInfo);
 
@@ -262,12 +255,12 @@ async function renderShop(interaction, filterType = null) {
     variant: 'shop',
     section: `Boutique — ${profile.characterName}`,
     title: filterType ? `Rayon ${getTypeLabel(filterType)}` : 'Boutique de Magnolia',
-    subtitle: 'Les prix évoluent selon ta réputation, les rumeurs et tes conditions de puissance.',
+    subtitle: `Page ${page + 1}/${totalPages} - Prix selon réputation, rumeurs et métier.`,
     stats: [
       { label: 'Joyaux', value: formatNumber(profile.jewels) },
       { label: 'Puissance', value: formatNumber(powerInfo.totalPower) },
       { label: 'Bonus équip.', value: `+${formatNumber(powerInfo.equipmentBonus)}` },
-      { label: 'Rang', value: profile.mageRank },
+      { label: 'Métier', value: profile.profession === 'marchand' ? 'Marchand -20 %' : getProfessionLabel(profile.profession) },
     ],
     lines,
     footer: 'Sélectionne un objet dans le menu sous le Canvas pour l’acheter.',
@@ -276,7 +269,7 @@ async function renderShop(interaction, filterType = null) {
   const payload = {
     ...createLargeCanvasPayload({
       attachment,
-      components: getBuyRows(items, profile, rumors, powerInfo),
+      components: getBuyRows(pageItems, profile, rumors, powerInfo, filterType, page, totalPages),
     }),
   };
 
@@ -468,6 +461,10 @@ async function handleShopComponent(interaction) {
   if (id === 'shop:consommable') return renderShop(interaction, 'consommable');
   if (id === 'shop:equipement') return renderShop(interaction, 'equipement');
   if (id === 'shop:lacrima') return renderShop(interaction, 'lacrima');
+  if (id.startsWith('shop:view:')) {
+    const [, , rawFilter, rawPage] = id.split(':');
+    return renderShop(interaction, rawFilter === 'all' ? null : rawFilter, Number.parseInt(rawPage, 10) || 0);
+  }
 
   return interaction.reply({
     content: 'Action boutique inconnue.',

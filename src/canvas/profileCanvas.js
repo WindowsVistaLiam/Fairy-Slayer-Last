@@ -9,6 +9,7 @@ const { getRankLabel } = require('../utils/ranks');
 const { getReputationLabel } = require('../utils/reputation');
 const { formatNumber, truncateText } = require('../utils/format');
 const { getInventorySummary, getProfilePowerWithEquipment } = require('../utils/inventoryUtils');
+const { getProfessionLabel } = require('../utils/professions');
 
 const FONT_TITLE_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'crown_title', 'CROWNT.TTF');
 const FONT_REGULAR_PATH = path.join(__dirname, '..', 'assets', 'fonts', 'Marcellus', 'Marcellus-Regular.ttf');
@@ -550,7 +551,7 @@ async function createProfileCanvas(profile, discordUser) {
   drawInfoBox(ctx, 'GUILDE', truncateText(guildName, 26), 880, 240, 380, 78, '#3bd6ff');
 
   drawInfoBox(ctx, 'TITRE', truncateText(title, 30), 470, 338, 380, 78, '#ffcf63');
-  drawInfoBox(ctx, 'ÂGE', truncateText(age, 18), 880, 338, 380, 78, '#7f5cff');
+  drawInfoBox(ctx, 'ÂGE / MÉTIER', truncateText(`${age} · ${getProfessionLabel(profile?.profession)}`, 30), 880, 338, 380, 78, '#7f5cff');
 
   roundRect(ctx, 470, 430, 790, 102, 22);
   ctx.fillStyle = 'rgba(10, 14, 30, 0.88)';

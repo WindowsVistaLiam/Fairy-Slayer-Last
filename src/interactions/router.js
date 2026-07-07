@@ -10,6 +10,8 @@ const rumorHub = require('../features/rumors/rumorHub');
 const gachaHub = require('../features/gacha/gachaHub');
 const combatHub = require('../features/combat/combatHub');
 const guildHub = require('../features/guild/guildHub');
+const professionHub = require('../features/professions/professionHub');
+const craftHub = require('../features/craft/craftHub');
 
 const PROFILE_MENU_TIMEOUT_MS = 10 * 60 * 1000;
 
@@ -132,6 +134,9 @@ async function handleComponentInteraction(interaction) {
 
   // Guildes RP
   if (id.startsWith('guild:')) return guildHub.handleGuildComponent(interaction);
+
+  if (id.startsWith('profession:')) return professionHub.handleProfessionComponent(interaction);
+  if (id.startsWith('craft:')) return craftHub.handleCraftComponent(interaction);
 
   return safeEphemeralReply(interaction, `Interaction inconnue : \`${id}\``);
 }

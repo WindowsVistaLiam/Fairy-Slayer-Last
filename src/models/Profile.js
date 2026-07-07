@@ -12,6 +12,18 @@ const profileSchema = new mongoose.Schema({
   guildName: { type: String, default: 'Sans guilde', trim: true, maxlength: 80 },
   magicType: { type: String, default: 'Magie inconnue', trim: true, maxlength: 120 },
 
+  profession: {
+    type: String,
+    enum: ['alchimiste', 'forgeron', 'armurier', 'redacteur', 'fermier', 'marchand', 'barde', 'tresorier', null],
+    default: null,
+    index: true,
+  },
+  professionChosenAt: { type: Date, default: null },
+  professionProgress: {
+    bardLongMessages: { type: Number, default: 0, min: 0 },
+    lastTreasurerPayoutAt: { type: Date, default: null },
+  },
+
   mageRank: { type: String, enum: VALID_MAGE_RANKS, default: 'C', index: true },
   powerLevel: { type: Number, default: 100, min: 0, max: 999999, index: true },
 

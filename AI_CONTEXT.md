@@ -6,7 +6,7 @@ Fairy Slayer est un bot Discord RP Fairy Tail.
 
 - Stack : Node.js 22+, discord.js v14, MongoDB Atlas, Mongoose, `@napi-rs/canvas` et Railway.
 - Repo : https://github.com/WindowsVistaLiam/Fairy-Slayer-Last
-- Commandes principales : `/profil`, `/guilde`, `/boutique`, `/classement`, `/admin`, `/gacha`, `/collection`, `/cartes`.
+- Commandes principales : `/profil`, `/guilde`, `/boutique`, `/metier`, `/craft`, `/classement`, `/admin`, `/gacha`, `/collection`, `/cartes`.
 - Architecture : commandes fines dans `src/commands`, logique dans `src/features`, modèles Mongoose dans `src/models`, événements dans `src/events`, Canvas dans `src/canvas`.
 
 Le `README.md` sert de référence fonctionnelle et de source d’idées. Le code et ce fichier restent les sources de vérité pour l’état actuel.
@@ -44,7 +44,9 @@ Le `README.md` sert de référence fonctionnelle et de source d’idées. Le cod
 - Rumeurs positives, négatives ou neutres avec impact boutique.
 - Réputation et historique des changements.
 - Menu `/admin` grand Canvas pour profils, XP, Joyaux et inventaires.
-- Catalogue enrichi à 19 objets, avec une progression des rangs C à Sacré.
+- Catalogue enrichi à 59 objets, dont 16 matières premières et 24 objets fabricables, avec une progression des rangs C à Sacré.
+- Métiers par personnage : Alchimiste, Forgeron, Armurier et Rédacteur pour 24 crafts ; Fermier, Marchand, Barde et Trésorier pour les bonus passifs.
+- Boutique paginée à 57 objets achetables afin de respecter la limite Discord de 25 options par menu.
 - Tableau enrichi à 14 missions, avec des récompenses reliées au catalogue.
 - Page `/profil` → Équipement dédiée : quatre slots, bonus et puissance totale.
 - Panneaux grand Canvas adaptatifs : hauteur dynamique, douze lignes visibles et résumé du surplus.

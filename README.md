@@ -7,6 +7,8 @@ Commandes principales :
 - `/profil` : personnage actif, profils multiples, inventaire, équipement, missions, relations, rumeurs et réputation.
 - `/guilde` : création et classement des guildes RP, candidatures, invitations, membres et rangs personnalisés.
 - `/boutique` : achat et vente d’objets, avec prix influencés par la réputation et les rumeurs.
+- `/metier` : choix permanent d’un métier pour le personnage actif.
+- `/craft` : atelier réservé aux métiers Alchimiste, Forgeron, Armurier et Rédacteur.
 - `/classement` : classements par personnage.
 - `/admin` : gestion staff des profils, de la progression, des inventaires et de la configuration serveur.
 - `/gacha` : portail d’invocation Fairy Tail, tirages, pity et fragments.
@@ -22,9 +24,11 @@ Commandes principales :
 - Rangs `C`, `B`, `A`, `S` et `Sacré`.
 - XP RP automatique uniquement dans les salons configurés, avec cooldown et longueur minimale réglables.
 - Montées de niveau illustrées par Canvas.
-- Inventaire MongoDB, 19 objets, consommables et équipement par slots.
+- Inventaire MongoDB, 59 objets, matières premières, consommables et équipement par slots.
 - Page `/profil` dédiée à l’équipement actif et à la puissance totale.
-- Boutique avec achat, vente, rareté, prérequis et puissance totale.
+- Boutique paginée avec 57 objets achetables, achat, vente, matériaux, rareté, prérequis et puissance totale.
+- 24 recettes de craft : potions, armes, armures et livres de sorts, avec consommation atomique des ingrédients.
+- Huit métiers : quatre artisans, Fermier (+20 % XP), Marchand (-20 % en boutique), Barde (réputation) et Trésorier (+5 % de Joyaux par jour).
 - Classements : niveau, puissance, richesse, réputation et missions.
 - 14 missions couvrant les rangs C à Sacré, avec acceptation, soumission, validation staff et récompenses.
 - Relations, réputation et rumeurs influençant la boutique.

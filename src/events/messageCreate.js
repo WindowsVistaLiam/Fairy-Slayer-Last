@@ -3,6 +3,8 @@ const { getActiveProfile } = require('../utils/activeProfile');
 const { calculateMessageXp, applyXp } = require('../utils/xp');
 const { createLevelUpCanvas } = require('../canvas/levelUpCanvas');
 const { sendGuildLog } = require('../utils/guildConfig');
+const { applyFarmerXpBonus } = require('../utils/professions');
+const ReputationLog = require('../models/ReputationLog');
 
 const xpCooldowns = new Map();
 
@@ -31,15 +33,38 @@ module.exports = {
 
       if (now - lastGain < cooldownMs) return;
 
-      const gainedXp = calculateMessageXp(message.content, config.minMessageLength);
-      if (gainedXp <= 0) return;
+      const baseXp = calculateMessageXp(message.content, config.minMessageLength);
+      if (baseXp <= 0) return;
 
       const profile = await getActiveProfile(message.author.id, message.guild.id);
       if (!profile) return;
 
       xpCooldowns.set(key, now);
+      const gainedXp = applyFarmerXpBonus(baseXp, profile.profession);
       const { leveledUp } = applyXp(profile, gainedXp);
+
+      let bardReputationGained = false;
+      if (profile.profession === 'barde' && message.content.trim().length >= 120) {
+        profile.professionProgress.bardLongMessages = Number(profile.professionProgress.bardLongMessages || 0) + 1;
+        if (profile.professionProgress.bardLongMessages >= 10) {
+          profile.professionProgress.bardLongMessages = 0;
+          if (Number(profile.reputation || 0) < 100) {
+            profile.reputation = Math.min(100, Number(profile.reputation || 0) + 1);
+            bardReputationGained = true;
+          }
+        }
+      }
       await profile.save();
+
+      if (bardReputationGained) {
+        await ReputationLog.create({
+          profileId: profile._id,
+          amount: 1,
+          reason: 'Dix récits longs partagés en salon RP.',
+          source: 'profession_barde',
+          createdBy: message.author.id,
+        });
+      }
 
       if (leveledUp) {
         const attachment = await createLevelUpCanvas(profile, gainedXp);

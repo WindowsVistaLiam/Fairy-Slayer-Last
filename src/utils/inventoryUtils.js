@@ -62,6 +62,33 @@ async function removeItemFromInventory(profileId, itemId, quantity = 1) {
   return true;
 }
 
+async function craftInventoryItem(profileId, recipe) {
+  const inventory = await getOrCreateInventory(profileId);
+  const missing = [];
+
+  for (const [itemId, requiredQuantity] of Object.entries(recipe.ingredients || {})) {
+    const entry = inventory.items.find((item) => item.itemId === itemId);
+    const owned = Number(entry?.quantity || 0);
+    if (owned < requiredQuantity) missing.push({ itemId, requiredQuantity, owned });
+  }
+
+  if (missing.length) return { success: false, missing };
+
+  for (const [itemId, requiredQuantity] of Object.entries(recipe.ingredients || {})) {
+    const entry = inventory.items.find((item) => item.itemId === itemId);
+    entry.quantity -= requiredQuantity;
+  }
+
+  inventory.items = inventory.items.filter((item) => item.quantity > 0);
+  const output = inventory.items.find((item) => item.itemId === recipe.outputItemId);
+  if (output) output.quantity += Number(recipe.outputQuantity || 1);
+  else inventory.items.push({ itemId: recipe.outputItemId, quantity: Number(recipe.outputQuantity || 1), equipped: false });
+
+  inventory.markModified('items');
+  await inventory.save();
+  return { success: true, inventory };
+}
+
 function isEquipableItem(item) {
   return Boolean(getItemEquipSlot(item));
 }
@@ -275,6 +302,7 @@ module.exports = {
   getOrCreateInventory,
   addItemToInventory,
   removeItemFromInventory,
+  craftInventoryItem,
   equipItemInInventory,
   unequipItemInInventory,
   getInventoryDetails,

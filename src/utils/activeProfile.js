@@ -1,5 +1,6 @@
 const Player = require('../models/Player');
 const Profile = require('../models/Profile');
+const { applyTreasurerDailyIncome } = require('./professions');
 
 async function getOrCreatePlayer(userId, guildId) {
   return Player.findOneAndUpdate(
@@ -13,11 +14,14 @@ async function getActiveProfile(userId, guildId) {
   const player = await Player.findOne({ userId, guildId });
   if (!player?.activeProfileId) return null;
 
-  return Profile.findOne({
+  const profile = await Profile.findOne({
     _id: player.activeProfileId,
     userId,
     guildId,
   });
+
+  if (profile) await applyTreasurerDailyIncome(profile);
+  return profile;
 }
 
 async function setActiveProfile(userId, guildId, profileId) {

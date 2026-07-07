@@ -125,6 +125,12 @@ function getMainRows() {
         .setLabel('Modifier l’image')
         .setEmoji('🖼️')
         .setStyle(ButtonStyle.Secondary),
+
+      new ButtonBuilder()
+        .setCustomId('profession:home')
+        .setLabel('Métier')
+        .setEmoji('🛠️')
+        .setStyle(ButtonStyle.Secondary),
     ),
   ];
 }

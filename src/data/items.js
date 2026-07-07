@@ -183,6 +183,69 @@ const ITEMS = [
   },
 ];
 
+function createCatalogItem(item) {
+  return {
+    equipSlot: null,
+    powerBonus: 0,
+    requiredRank: 'C',
+    requiredPower: 0,
+    availableInShop: true,
+    ...item,
+  };
+}
+
+const MATERIAL_ITEMS = [
+  ['herbe_lune', 'Herbe de lune', 'Une plante argentée utilisée dans les potions réparatrices.', 90, 30],
+  ['racine_mandragore', 'Racine de mandragore', 'Une racine chargée d’énergie vitale brute.', 160, 55],
+  ['eau_lacrima', 'Eau de lacrima', 'Une eau pure ayant reposé au contact d’une lacrima.', 240, 85],
+  ['poussiere_etoile', 'Poussière d’étoile', 'Un catalyseur rare pour les préparations de haut rang.', 650, 220],
+  ['lingot_fer', 'Lingot de fer', 'La base des armes et protections robustes.', 140, 50],
+  ['acier_magique', 'Acier magique', 'Un alliage qui conduit naturellement la magie.', 420, 145],
+  ['mithril', 'Lingot de mithril', 'Un métal léger et exceptionnellement résistant.', 1100, 380],
+  ['ecaille_draconique', 'Écaille draconique', 'Une écaille apte à renforcer les créations légendaires.', 2800, 950],
+  ['cuir_renforce', 'Cuir renforcé', 'Un cuir épais préparé pour les tenues de mission.', 180, 65],
+  ['tissu_enchante', 'Tissu enchanté', 'Une étoffe parcourue de fils magiques.', 390, 135],
+  ['fil_argent', 'Fil d’argent', 'Un fil conducteur servant aux coutures runiques.', 520, 180],
+  ['plaque_runique', 'Plaque runique', 'Une plaque gravée capable de retenir un enchantement.', 980, 340],
+  ['parchemin_vierge', 'Parchemin vierge', 'Un support traité pour recevoir des formules magiques.', 120, 40],
+  ['encre_magique', 'Encre magique', 'Une encre stable qui ne s’efface pas sous l’effet des sorts.', 300, 105],
+  ['cristal_memoire', 'Cristal de mémoire', 'Un cristal qui conserve les structures complexes des sorts.', 850, 295],
+  ['plume_phenix', 'Plume de phénix', 'Une plume rarissime utilisée pour les ouvrages suprêmes.', 2400, 820],
+].map(([itemId, name, description, basePrice, sellPrice]) => createCatalogItem({
+  itemId, name, description, type: 'materiau', rarity: basePrice >= 2000 ? 'legendaire' : basePrice >= 800 ? 'epique' : basePrice >= 300 ? 'rare' : 'commun', basePrice, sellPrice,
+}));
+
+const CRAFTED_ITEMS = [
+  ['potion_vigueur', 'Potion de vigueur', 'Un tonique qui dissipe la fatigue après un combat.', 'consommable', null, 'commun', 520, 185, 0, 'C', 0],
+  ['antidote_arcane', 'Antidote arcanique', 'Neutralise symboliquement poisons et malédictions mineures.', 'consommable', null, 'rare', 900, 320, 0, 'C', 250],
+  ['elixir_celerite', 'Élixir de célérité', 'Une préparation vive qui aiguise les réflexes.', 'consommable', null, 'rare', 1450, 510, 0, 'B', 600],
+  ['potion_peau_pierre', 'Potion de peau de pierre', 'Durcit temporairement la peau comme une armure.', 'consommable', null, 'epique', 2600, 920, 0, 'A', 1300],
+  ['essence_draconique', 'Essence draconique', 'Une essence brûlante réservée aux missions extrêmes.', 'consommable', null, 'legendaire', 6200, 2200, 0, 'S', 3000],
+  ['panacee_celeste', 'Panacée céleste', 'Une préparation mythique réputée restaurer corps et magie.', 'consommable', null, 'mythique', 12500, 4400, 0, 'Sacré', 5500],
+  ['sabre_acier_magique', 'Sabre d’acier magique', 'Une lame équilibrée qui conduit efficacement la magie.', 'equipement', 'arme', 'rare', 2200, 780, 180, 'B', 700],
+  ['lance_vent', 'Lance du vent', 'Une lance légère dont la pointe fend les courants magiques.', 'equipement', 'arme', 'rare', 3100, 1100, 240, 'B', 1100],
+  ['marteau_runique', 'Marteau runique', 'Un lourd marteau couvert de runes d’impact.', 'equipement', 'arme', 'epique', 5200, 1850, 360, 'A', 1900],
+  ['arc_lunaire', 'Arc lunaire', 'Un arc argenté qui concentre la lumière nocturne.', 'equipement', 'arme', 'epique', 6800, 2400, 430, 'A', 2400],
+  ['lame_mithril', 'Lame de mithril', 'Une arme rapide, précise et presque incassable.', 'equipement', 'arme', 'legendaire', 11200, 4000, 620, 'S', 3900],
+  ['espadon_dragon', 'Espadon du dragon', 'Une arme monumentale forgée autour d’écailles draconiques.', 'equipement', 'arme', 'mythique', 24000, 8500, 980, 'Sacré', 6500],
+  ['armure_cuir_mage', 'Armure de cuir du mage', 'Une protection souple adaptée aux premières missions.', 'equipement', 'tenue', 'commun', 1350, 480, 100, 'C', 350],
+  ['robe_enchantee', 'Robe enchantée', 'Une robe protectrice tissée de fibres magiques.', 'equipement', 'tenue', 'rare', 2800, 990, 220, 'B', 900],
+  ['cuirasse_runique', 'Cuirasse runique', 'Des plaques gravées absorbent une partie des impacts.', 'equipement', 'tenue', 'epique', 5600, 2000, 390, 'A', 2000],
+  ['manteau_lunaire', 'Manteau lunaire', 'Une tenue argentée qui semble disparaître dans la nuit.', 'equipement', 'tenue', 'epique', 7200, 2550, 470, 'A', 2700],
+  ['armure_mithril', 'Armure de mithril', 'Une armure complète aussi légère que résistante.', 'equipement', 'tenue', 'legendaire', 12800, 4600, 680, 'S', 4200],
+  ['armure_draconique', 'Armure draconique', 'Une protection mythique couverte d’écailles anciennes.', 'equipement', 'tenue', 'mythique', 26000, 9200, 1040, 'Sacré', 7000],
+  ['grimoire_soins', 'Grimoire des soins', 'Un manuel de sortilèges réparateurs fondamentaux.', 'equipement', 'arme', 'commun', 1200, 430, 90, 'C', 250],
+  ['livre_flammes', 'Livre des flammes', 'Un ouvrage dont les pages restent chaudes au toucher.', 'equipement', 'arme', 'rare', 2900, 1030, 230, 'B', 900],
+  ['codex_vent', 'Codex des vents', 'Des formules aériennes se déplacent entre ses pages.', 'equipement', 'arme', 'rare', 3600, 1280, 280, 'B', 1250],
+  ['tome_runique', 'Tome runique', 'Un traité dense consacré aux sceaux et aux barrières.', 'equipement', 'arme', 'epique', 6100, 2150, 410, 'A', 2100],
+  ['grimoire_celeste', 'Grimoire céleste', 'Un livre capable de reproduire la carte du ciel magique.', 'equipement', 'arme', 'legendaire', 11800, 4200, 640, 'S', 4000],
+  ['codex_draconique', 'Codex draconique', 'Un manuscrit mythique écrit à l’encre de feu ancien.', 'equipement', 'arme', 'mythique', 24500, 8700, 1000, 'Sacré', 6800],
+].map(([itemId, name, description, type, equipSlot, rarity, basePrice, sellPrice, powerBonus, requiredRank, requiredPower]) => createCatalogItem({
+  itemId, name, description, type, equipSlot, rarity, basePrice, sellPrice, powerBonus, requiredRank, requiredPower,
+}));
+
+ITEMS.push(...MATERIAL_ITEMS, ...CRAFTED_ITEMS);
+
 function getAllItems() {
   return ITEMS;
 }
@@ -214,6 +277,7 @@ function getTypeLabel(type) {
     lacrima: 'Lacrima',
     rare: 'Objet rare',
     mission: 'Objet de mission',
+    materiau: 'Matériau de craft',
   };
 
   return labels[type] || type;
