@@ -40,6 +40,7 @@ Commandes principales :
 - Interfaces `/profil` et `/admin` en grand Canvas.
 - Identité visuelle illustrée : emojis par objet, métier et rareté, emblèmes thématiques pour guildes, craft, missions, combats et informations.
 - La carte profil utilise des pictogrammes vectoriels locaux, sans dépendance aux polices emoji du système ou de Railway.
+- Les encadrés Canvas plein cadre adoptent un style RPG Fairy Tail : coins taillés, doubles liserés, rivets magiques et jauges segmentées.
 - Navigation `/profil` compacte via un menu déroulant unique, avec les actions d’édition conservées sur une seule rangée.
 - Panneaux Canvas adaptatifs aux contenus longs.
 - Inspection détaillée d’un profil depuis `/admin`, sans modification des données.

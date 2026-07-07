@@ -170,16 +170,65 @@ function drawEmoji(ctx, emoji, x, y, size = 24) {
   ctx.restore();
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  const radius = Math.min(r, w / 2, h / 2);
-
+function cutCornerPath(ctx, x, y, w, h, cut = 14) {
+  const corner = Math.max(4, Math.min(cut, w / 4, h / 4));
   ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + w, y, x + w, y + h, radius);
-  ctx.arcTo(x + w, y + h, x, y + h, radius);
-  ctx.arcTo(x, y + h, x, y, radius);
-  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.moveTo(x + corner, y);
+  ctx.lineTo(x + w - corner, y);
+  ctx.lineTo(x + w, y + corner);
+  ctx.lineTo(x + w, y + h - corner);
+  ctx.lineTo(x + w - corner, y + h);
+  ctx.lineTo(x + corner, y + h);
+  ctx.lineTo(x, y + h - corner);
+  ctx.lineTo(x, y + corner);
   ctx.closePath();
+}
+
+function drawAngularPanel(ctx, x, y, w, h, accent, options = {}) {
+  const { cut = 14, fill = null, shadow = false, rivets = true } = options;
+
+  ctx.save();
+  if (shadow) {
+    ctx.shadowColor = 'rgba(0,0,0,0.58)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 7;
+  }
+
+  cutCornerPath(ctx, x, y, w, h, cut);
+  ctx.fillStyle = fill || 'rgba(8, 12, 24, 0.92)';
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.strokeStyle = `${accent}c9`;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  cutCornerPath(ctx, x + 5, y + 5, w - 10, h - 10, Math.max(4, cut - 4));
+  ctx.strokeStyle = 'rgba(255,223,145,0.16)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.strokeStyle = `${accent}75`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + cut + 10, y + 5);
+  ctx.lineTo(x + Math.min(w * 0.3, 120), y + 5);
+  ctx.moveTo(x + w - cut - 10, y + h - 5);
+  ctx.lineTo(x + w - Math.min(w * 0.3, 120), y + h - 5);
+  ctx.stroke();
+
+  if (rivets && w >= 150 && h >= 55) {
+    ctx.fillStyle = accent;
+    ctx.shadowColor = accent;
+    ctx.shadowBlur = 7;
+    for (const [rivetX, rivetY] of [[x + cut + 7, y + 8], [x + w - cut - 7, y + h - 8]]) {
+      ctx.beginPath();
+      ctx.arc(rivetX, rivetY, 2.5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  ctx.restore();
 }
 
 function stripDiscordMarkdown(text) {
@@ -353,13 +402,7 @@ function getStatEmoji(stat) {
 function drawStat(ctx, stat, x, y, w, accent) {
   const h = 86;
 
-  roundRect(ctx, x, y, w, h, 18);
-  ctx.fillStyle = 'rgba(13, 18, 34, 0.88)';
-  ctx.fill();
-
-  ctx.strokeStyle = `${accent}dd`;
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  drawAngularPanel(ctx, x, y, w, h, accent, { cut: 13, fill: 'rgba(13, 18, 34, 0.92)' });
 
   drawEmoji(ctx, getStatEmoji(stat), x + 29, y + 11, 22);
   drawText(ctx, stat.label, x + 48, y + 15, 16, '#cec6f6', 'bold', w - 64);
@@ -367,13 +410,9 @@ function drawStat(ctx, stat, x, y, w, accent) {
 }
 
 function drawLineItem(ctx, line, x, y, w, accent, textColor = '#f4f1ff', emoji = '✨') {
-  roundRect(ctx, x, y, w, 60, 16);
-  ctx.fillStyle = 'rgba(255,255,255,0.045)';
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.09)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  drawAngularPanel(ctx, x, y, w, 60, accent, {
+    cut: 11, fill: 'rgba(255,255,255,0.045)', shadow: false, rivets: false,
+  });
 
   ctx.fillStyle = `${accent}33`;
   ctx.beginPath();
@@ -476,20 +515,16 @@ async function createPanelCanvas(options) {
   drawMagicCircle(ctx, 200, 705, 110, accent);
 
   // Cadre principal
-  roundRect(ctx, 50, 50, width - 100, height - 100, 36);
-  ctx.fillStyle = 'rgba(8, 12, 24, 0.86)';
-  ctx.fill();
+  drawAngularPanel(ctx, 4, 4, width - 8, height - 8, accent, {
+    cut: 30, fill: 'rgba(8, 12, 24, 0.88)', shadow: true,
+  });
 
-  ctx.strokeStyle = accent;
-  ctx.lineWidth = 4;
-  ctx.stroke();
-
-  roundRect(ctx, 72, 72, width - 144, height - 144, 28);
+  cutCornerPath(ctx, 20, 20, width - 40, height - 40, 23);
   ctx.strokeStyle = 'rgba(255, 207, 99, 0.45)';
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  drawCornerLines(ctx, 80, 80, width - 160, height - 160, '#ffdf91');
+  drawCornerLines(ctx, 28, 28, width - 56, height - 56, '#ffdf91');
 
   // Header
   const headerGradient = ctx.createLinearGradient(90, 88, width - 90, 200);
@@ -497,13 +532,9 @@ async function createPanelCanvas(options) {
   headerGradient.addColorStop(0.58, 'rgba(255, 207, 99, 0.14)');
   headerGradient.addColorStop(1, 'rgba(255, 122, 78, 0.36)');
 
-  roundRect(ctx, 90, 88, width - 180, 120, 26);
-  ctx.fillStyle = headerGradient;
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  drawAngularPanel(ctx, 90, 88, width - 180, 120, '#ffdf91', {
+    cut: 20, fill: headerGradient, shadow: true,
+  });
 
   drawText(ctx, 'FAIRY SLAYER', 120, 98, 34, '#ffcf63', 'title');
   drawText(ctx, stripDiscordMarkdown(section).toUpperCase(), 120, 140, 36, '#ffffff', 'bold', 560);
@@ -543,13 +574,9 @@ async function createPanelCanvas(options) {
   const contentX = 90;
   const contentW = width - 180;
 
-  roundRect(ctx, contentX, contentY, contentW, contentH, 26);
-  ctx.fillStyle = 'rgba(255,255,255,0.045)';
-  ctx.fill();
-
-  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  drawAngularPanel(ctx, contentX, contentY, contentW, contentH, accent, {
+    cut: 20, fill: 'rgba(255,255,255,0.035)', shadow: false,
+  });
 
   let cursorY = contentY + 30;
   const lineGap = 14;
@@ -571,12 +598,9 @@ async function createPanelCanvas(options) {
 
   // Footer, bien remonté dans le cadre
   if (footer) {
-    roundRect(ctx, 90, footerY, width - 180, 48, 16);
-    ctx.fillStyle = 'rgba(255,255,255,0.055)';
-    ctx.fill();
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.09)';
-    ctx.stroke();
+    drawAngularPanel(ctx, 90, footerY, width - 180, 48, accent, {
+      cut: 10, fill: 'rgba(255,255,255,0.045)', shadow: false, rivets: false,
+    });
 
     drawEmoji(ctx, variantIcons[0], 118, footerY + 10, 20);
     drawText(ctx, stripDiscordMarkdown(footer), 145, footerY + 13, 19, '#cfc8ff', 'regular', width - 265);

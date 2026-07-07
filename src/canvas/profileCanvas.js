@@ -148,16 +148,89 @@ function drawWrappedText(ctx, text, x, y, maxWidth, lineHeight, maxLines, size =
   ctx.restore();
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  const radius = Math.min(r, w / 2, h / 2);
-
+function cutCornerPath(ctx, x, y, w, h, cut = 14) {
+  const corner = Math.max(4, Math.min(cut, w / 4, h / 4));
   ctx.beginPath();
-  ctx.moveTo(x + radius, y);
-  ctx.arcTo(x + w, y, x + w, y + h, radius);
-  ctx.arcTo(x + w, y + h, x, y + h, radius);
-  ctx.arcTo(x, y + h, x, y, radius);
-  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.moveTo(x + corner, y);
+  ctx.lineTo(x + w - corner, y);
+  ctx.lineTo(x + w, y + corner);
+  ctx.lineTo(x + w, y + h - corner);
+  ctx.lineTo(x + w - corner, y + h);
+  ctx.lineTo(x + corner, y + h);
+  ctx.lineTo(x, y + h - corner);
+  ctx.lineTo(x, y + corner);
   ctx.closePath();
+}
+
+function drawRivet(ctx, x, y, color, radius = 3) {
+  ctx.save();
+  ctx.shadowColor = color;
+  ctx.shadowBlur = 8;
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(x, y, radius, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.55)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+}
+
+function drawRpgPanel(ctx, x, y, w, h, options = {}) {
+  const {
+    accent = '#ffcf63',
+    cut = 14,
+    fill = null,
+    shadow = true,
+    rivets = true,
+  } = options;
+
+  ctx.save();
+  if (shadow) {
+    ctx.shadowColor = 'rgba(0,0,0,0.58)';
+    ctx.shadowBlur = 18;
+    ctx.shadowOffsetY = 7;
+  }
+
+  cutCornerPath(ctx, x, y, w, h, cut);
+  if (fill) {
+    ctx.fillStyle = fill;
+  } else {
+    const panelGradient = ctx.createLinearGradient(x, y, x, y + h);
+    panelGradient.addColorStop(0, 'rgba(18, 25, 48, 0.97)');
+    panelGradient.addColorStop(0.55, 'rgba(8, 13, 29, 0.96)');
+    panelGradient.addColorStop(1, 'rgba(5, 9, 21, 0.98)');
+    ctx.fillStyle = panelGradient;
+  }
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  ctx.strokeStyle = `${accent}c9`;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+
+  cutCornerPath(ctx, x + 5, y + 5, w - 10, h - 10, Math.max(4, cut - 4));
+  ctx.strokeStyle = 'rgba(255,223,145,0.18)';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  ctx.strokeStyle = `${accent}7a`;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(x + cut + 10, y + 5);
+  ctx.lineTo(x + Math.min(w * 0.32, 120), y + 5);
+  ctx.moveTo(x + w - cut - 10, y + h - 5);
+  ctx.lineTo(x + w - Math.min(w * 0.32, 120), y + h - 5);
+  ctx.stroke();
+
+  if (rivets && w >= 140 && h >= 60) {
+    drawRivet(ctx, x + cut + 7, y + 8, accent, 2.5);
+    drawRivet(ctx, x + w - cut - 7, y + h - 8, accent, 2.5);
+  }
+
+  ctx.restore();
 }
 
 async function loadLocalImage(filePath) {
@@ -308,15 +381,14 @@ function drawMagicCircle(ctx, x, y, radius, color = '#ffcf63') {
 function drawInfoBox(ctx, label, value, x, y, w, h, accent = '#ffcf63', icon = 'sparkle') {
   ctx.save();
 
-  roundRect(ctx, x, y, w, h, 18);
-  ctx.fillStyle = 'rgba(10, 14, 30, 0.88)';
-  ctx.fill();
+  drawRpgPanel(ctx, x, y, w, h, { accent, cut: 13 });
 
-  ctx.strokeStyle = 'rgba(255, 207, 99, 0.35)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
-
-  roundRect(ctx, x, y, 8, h, 8);
+  ctx.beginPath();
+  ctx.moveTo(x, y + 13);
+  ctx.lineTo(x + 9, y + 4);
+  ctx.lineTo(x + 9, y + h - 4);
+  ctx.lineTo(x, y + h - 13);
+  ctx.closePath();
   ctx.fillStyle = accent;
   ctx.fill();
 
@@ -330,7 +402,7 @@ function drawInfoBox(ctx, label, value, x, y, w, h, accent = '#ffcf63', icon = '
 function drawBar(ctx, x, y, w, h, progress, colorA = '#7f5cff', colorB = '#ffcf63') {
   const p = Math.max(0.02, Math.min(1, progress));
 
-  roundRect(ctx, x, y, w, h, h / 2);
+  cutCornerPath(ctx, x, y, w, h, Math.min(8, h / 3));
   ctx.fillStyle = 'rgba(7, 10, 20, 0.95)';
   ctx.fill();
 
@@ -338,15 +410,27 @@ function drawBar(ctx, x, y, w, h, progress, colorA = '#7f5cff', colorB = '#ffcf6
   gradient.addColorStop(0, colorA);
   gradient.addColorStop(1, colorB);
 
-  roundRect(ctx, x, y, w * p, h, h / 2);
+  cutCornerPath(ctx, x + 2, y + 2, Math.max(8, (w - 4) * p), h - 4, Math.min(6, h / 4));
   ctx.fillStyle = gradient;
   ctx.fill();
 
   ctx.strokeStyle = 'rgba(255,255,255,0.12)';
   ctx.lineWidth = 2;
 
-  roundRect(ctx, x, y, w, h, h / 2);
+  cutCornerPath(ctx, x, y, w, h, Math.min(8, h / 3));
   ctx.stroke();
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(255,255,255,0.09)';
+  ctx.lineWidth = 1;
+  for (let segment = 1; segment < 10; segment += 1) {
+    const segmentX = x + (w * segment) / 10;
+    ctx.beginPath();
+    ctx.moveTo(segmentX, y + 4);
+    ctx.lineTo(segmentX, y + h - 4);
+    ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawEmptyAvatarPlaceholder(ctx, x, y, w, h) {
@@ -479,14 +563,11 @@ async function createProfileCanvas(profile, discordUser) {
   drawMagicCircle(ctx, 1180, 220, 110, '#ffcf63');
   drawMagicCircle(ctx, 180, 705, 96, '#7f5cff');
 
-  roundRect(ctx, 50, 50, width - 100, height - 100, 36);
-  ctx.fillStyle = 'rgba(8, 12, 24, 0.84)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 207, 99, 0.72)';
-  ctx.lineWidth = 3;
-  ctx.stroke();
+  drawRpgPanel(ctx, 4, 4, width - 8, height - 8, {
+    accent: '#ffcf63', cut: 30, fill: 'rgba(8, 12, 24, 0.86)', rivets: true,
+  });
 
-  roundRect(ctx, 68, 68, width - 136, height - 136, 28);
+  cutCornerPath(ctx, 20, 20, width - 40, height - 40, 23);
   ctx.strokeStyle = 'rgba(127, 92, 255, 0.52)';
   ctx.lineWidth = 2;
   ctx.stroke();
@@ -496,12 +577,9 @@ async function createProfileCanvas(profile, discordUser) {
   headerGradient.addColorStop(0.55, 'rgba(255, 207, 99, 0.16)');
   headerGradient.addColorStop(1, 'rgba(255, 122, 78, 0.35)');
 
-  roundRect(ctx, 92, 88, width - 184, 110, 24);
-  ctx.fillStyle = headerGradient;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  drawRpgPanel(ctx, 92, 88, width - 184, 110, {
+    accent: '#ffcf63', cut: 20, fill: headerGradient, rivets: true,
+  });
 
   drawText(ctx, 'FAIRY SLAYER', 122, 98, 36, '#ffcf63', 'title');
   drawText(ctx, truncateText(characterName, 34), 122, 142, 37, '#ffffff', 'bold');
@@ -535,14 +613,11 @@ async function createProfileCanvas(profile, discordUser) {
   const avatarW = 320;
   const avatarH = 400;
 
-  roundRect(ctx, avatarX, avatarY, avatarW, avatarH, 28);
-  ctx.fillStyle = 'rgba(14, 19, 36, 0.95)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 207, 99, 0.35)';
-  ctx.lineWidth = 3;
-  ctx.stroke();
+  drawRpgPanel(ctx, avatarX, avatarY, avatarW, avatarH, {
+    accent: '#ffcf63', cut: 22, rivets: true,
+  });
 
-  roundRect(ctx, avatarX + 12, avatarY + 12, avatarW - 24, avatarH - 24, 20);
+  cutCornerPath(ctx, avatarX + 12, avatarY + 12, avatarW - 24, avatarH - 24, 15);
   ctx.save();
   ctx.clip();
 
@@ -563,11 +638,9 @@ async function createProfileCanvas(profile, discordUser) {
 
   ctx.restore();
 
-  roundRect(ctx, avatarX + 28, avatarY + avatarH - 60, avatarW - 56, 48, 16);
-  ctx.fillStyle = 'rgba(7, 10, 20, 0.78)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 207, 99, 0.35)';
-  ctx.stroke();
+  drawRpgPanel(ctx, avatarX + 28, avatarY + avatarH - 60, avatarW - 56, 48, {
+    accent: '#ffcf63', cut: 10, fill: 'rgba(7, 10, 20, 0.88)', rivets: false, shadow: false,
+  });
 
   drawCenteredText(ctx, `Niveau RP ${level}`, avatarX + 28, avatarY + avatarH - 47, avatarW - 56, 22, '#ffcf63', 'bold');
 
@@ -577,12 +650,7 @@ async function createProfileCanvas(profile, discordUser) {
   drawInfoBox(ctx, 'TITRE', truncateText(title, 30), 470, 338, 380, 78, '#ffcf63', 'crown');
   drawInfoBox(ctx, 'ÂGE / GENRE', truncateText(`${age} · ${gender}`, 30), 880, 338, 380, 78, '#7f5cff', 'user');
 
-  roundRect(ctx, 470, 430, 790, 102, 22);
-  ctx.fillStyle = 'rgba(10, 14, 30, 0.88)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255, 207, 99, 0.35)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  drawRpgPanel(ctx, 470, 430, 790, 102, { accent: '#ffcf63', cut: 16 });
 
   drawCanvasIcon(ctx, 'sword', 496, 443, 22, '#cec6f6');
   drawText(ctx, 'NIVEAU DE PUISSANCE', 526, 446, 18, '#cec6f6', 'bold');
@@ -595,23 +663,14 @@ async function createProfileCanvas(profile, discordUser) {
   drawText(ctx, bonusLabel, 496, 515, 14, '#cec6f6', 'bold');
   drawBar(ctx, 760, 482, 460, 26, Math.min(1, powerLevel / 10000), '#7f5cff', '#ff7a4e');
 
-  roundRect(ctx, 470, 552, 790, 88, 22);
-  ctx.fillStyle = 'rgba(10, 14, 30, 0.88)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(127, 92, 255, 0.35)';
-  ctx.lineWidth = 2;
-  ctx.stroke();
+  drawRpgPanel(ctx, 470, 552, 790, 88, { accent: '#7f5cff', cut: 16 });
 
   drawCanvasIcon(ctx, 'chart', 496, 565, 22, '#ffffff');
   drawText(ctx, `Progression du niveau ${level}`, 526, 568, 20, '#ffffff', 'bold');
   drawText(ctx, `${formatNumber(xp)} / ${formatNumber(xpNeeded)} XP`, 965, 568, 17, '#cec6f6', 'bold');
   drawBar(ctx, 496, 604, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
 
-  roundRect(ctx, 100, 660, 720, 84, 18);
-  ctx.fillStyle = 'rgba(255,255,255,0.06)';
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-  ctx.stroke();
+  drawRpgPanel(ctx, 100, 660, 720, 84, { accent: '#3bd6ff', cut: 14 });
 
   drawCanvasIcon(ctx, 'book', 122, 668, 18, '#cec6f6');
   drawText(ctx, 'DESCRIPTION', 148, 671, 14, '#cec6f6', 'bold');
