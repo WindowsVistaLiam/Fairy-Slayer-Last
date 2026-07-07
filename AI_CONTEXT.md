@@ -32,7 +32,7 @@ Le `README.md` sert de référence fonctionnelle et de source d’idées. Le cod
 ## Fonctionnalités terminées
 
 - Profils multiples par utilisateur et profil actif.
-- Guildes RP par personnage : création, invitations, membres, exclusions, rangs personnalisés et permissions déléguées.
+- Guildes RP par personnage : création, classement par puissance collective, candidatures, invitations, membres, exclusions, rangs personnalisés et permissions déléguées.
 - Carte de profil grand Canvas : image, statistiques, équipement, lacrima et puissance totale.
 - Inventaire MongoDB réel, consommables, achat, vente, équipement et déséquipement.
 - Slots d’équipement : Arme, Tenue, Accessoire et Lacrima.

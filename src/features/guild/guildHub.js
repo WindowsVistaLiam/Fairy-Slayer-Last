@@ -11,6 +11,7 @@ const {
 } = require('discord.js');
 
 const GuildInvite = require('../../models/GuildInvite');
+const GuildApplication = require('../../models/GuildApplication');
 const GuildMember = require('../../models/GuildMember');
 const GuildRank = require('../../models/GuildRank');
 const MageGuild = require('../../models/MageGuild');
@@ -20,6 +21,7 @@ const { getActiveProfile } = require('../../utils/activeProfile');
 const { createLargeCanvasPayload } = require('../../utils/canvasMessage');
 const { truncateText } = require('../../utils/format');
 const { sendGuildLog } = require('../../utils/guildConfig');
+const { getProfilePowerWithEquipment } = require('../../utils/inventoryUtils');
 
 function normalizeName(value) {
   return String(value || '')
@@ -125,6 +127,16 @@ function homeRows(context, invites = []) {
           .setLabel('Créer une guilde')
           .setEmoji('✨')
           .setStyle(ButtonStyle.Success),
+        new ButtonBuilder()
+          .setCustomId('guild:browse')
+          .setLabel('Voir les guildes')
+          .setEmoji('🔎')
+          .setStyle(ButtonStyle.Primary),
+        new ButtonBuilder()
+          .setCustomId('guild:ranking')
+          .setLabel('Classement')
+          .setEmoji('🏆')
+          .setStyle(ButtonStyle.Secondary),
       ),
     ];
 
@@ -148,21 +160,23 @@ function homeRows(context, invites = []) {
   const buttons = [
     new ButtonBuilder().setCustomId('guild:members').setLabel('Membres').setEmoji('👥').setStyle(ButtonStyle.Primary),
     new ButtonBuilder().setCustomId('guild:ranks').setLabel('Rangs').setEmoji('🏷️').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('guild:ranking').setLabel('Classement').setEmoji('🏆').setStyle(ButtonStyle.Secondary),
   ];
 
   if (canManageMembers(context)) {
-    buttons.push(new ButtonBuilder().setCustomId('guild:invite').setLabel('Inviter').setEmoji('➕').setStyle(ButtonStyle.Success));
+    buttons.push(new ButtonBuilder().setCustomId('guild:applications').setLabel('Candidatures').setEmoji('📨').setStyle(ButtonStyle.Success));
   }
 
-  buttons.push(
-    new ButtonBuilder()
+  const actionButtons = [];
+  if (canManageMembers(context)) {
+    actionButtons.push(new ButtonBuilder().setCustomId('guild:invite').setLabel('Inviter').setEmoji('➕').setStyle(ButtonStyle.Success));
+  }
+  actionButtons.push(new ButtonBuilder()
       .setCustomId(context.isOwner ? 'guild:disband' : 'guild:leave')
       .setLabel(context.isOwner ? 'Dissoudre' : 'Quitter')
       .setEmoji('🚪')
-      .setStyle(ButtonStyle.Danger),
-  );
-
-  return [new ActionRowBuilder().addComponents(buttons)];
+      .setStyle(ButtonStyle.Danger));
+  return [new ActionRowBuilder().addComponents(buttons), new ActionRowBuilder().addComponents(actionButtons)];
 }
 
 async function openGuildHub(interaction) {
@@ -365,6 +379,210 @@ async function handleInviteModal(interaction) {
   return interaction.reply({ content: `✅ **${target.characterName}** a été invité(e).`, flags: MessageFlags.Ephemeral });
 }
 
+async function showGuildBrowser(interaction) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+  if (!profile) return replyError(interaction, 'Aucun personnage actif.');
+  if ((await getGuildContext(profile)).membership) return replyError(interaction, 'Ton personnage appartient déjà à une guilde.');
+
+  const guilds = await MageGuild.find({ guildId: interaction.guildId }).sort({ createdAt: 1 }).limit(25);
+  const counts = await GuildMember.aggregate([
+    { $match: { mageGuildId: { $in: guilds.map((guild) => guild._id) } } },
+    { $group: { _id: '$mageGuildId', total: { $sum: 1 } } },
+  ]);
+  const countByGuild = new Map(counts.map((row) => [String(row._id), row.total]));
+  const lines = guilds.length
+    ? guilds.map((guild) => `${guild.name} - ${countByGuild.get(String(guild._id)) || 0} membre(s) - ${truncateText(guild.description, 70)}`)
+    : ['Aucune guilde n’a encore été créée sur ce serveur.'];
+  const components = [];
+  if (guilds.length) {
+    components.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder()
+        .setCustomId('guild:browse:select')
+        .setPlaceholder('Choisir une guilde')
+        .addOptions(guilds.map((guild) => new StringSelectMenuOptionBuilder()
+          .setLabel(truncateText(guild.name, 100))
+          .setDescription(`${countByGuild.get(String(guild._id)) || 0} membre(s)`)
+          .setValue(String(guild._id)))),
+    ));
+  }
+  components.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('guild:ranking').setLabel('Classement').setEmoji('🏆').setStyle(ButtonStyle.Primary),
+    new ButtonBuilder().setCustomId('guild:home').setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
+  ));
+
+  const attachment = await createPanelCanvas({
+    fileName: 'fairy-slayer-guildes.png', variant: 'relations', section: 'Guildes de mages',
+    title: `${guilds.length} guilde(s)`, subtitle: 'Consulte une guilde avant de lui envoyer ta candidature.',
+    lines, footer: 'Guilde - Annuaire',
+  });
+  return respondCanvas(interaction, createLargeCanvasPayload({ attachment, components }));
+}
+
+async function showGuildDetail(interaction, mageGuildId) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+  if (!profile) return replyError(interaction, 'Aucun personnage actif.');
+  if ((await getGuildContext(profile)).membership) return replyError(interaction, 'Ton personnage appartient déjà à une guilde.');
+  const mageGuild = await MageGuild.findOne({ _id: mageGuildId, guildId: interaction.guildId });
+  if (!mageGuild) return replyError(interaction, 'Cette guilde n’existe plus.');
+  const [owner, memberCount, existing] = await Promise.all([
+    Profile.findById(mageGuild.ownerProfileId),
+    GuildMember.countDocuments({ mageGuildId: mageGuild._id }),
+    GuildApplication.exists({ mageGuildId: mageGuild._id, profileId: profile._id }),
+  ]);
+  const attachment = await createPanelCanvas({
+    fileName: 'fairy-slayer-guilde-detail.png', variant: 'relations', section: 'Fiche de guilde',
+    title: mageGuild.name, subtitle: `${memberCount} membre(s) - Maître : ${owner?.characterName || 'Inconnu'}`,
+    lines: [mageGuild.description, existing ? 'Ta candidature est déjà en attente.' : 'Tu peux envoyer une candidature au conseil de cette guilde.'],
+    footer: 'Guilde - Candidature',
+  });
+  const buttons = [];
+  if (!existing) buttons.push(new ButtonBuilder().setCustomId(`guild:apply:${mageGuild._id}`).setLabel('Postuler').setEmoji('📨').setStyle(ButtonStyle.Success));
+  buttons.push(new ButtonBuilder().setCustomId('guild:browse').setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary));
+  return respondCanvas(interaction, createLargeCanvasPayload({ attachment, components: [new ActionRowBuilder().addComponents(buttons)] }));
+}
+
+function showApplicationModal(interaction, mageGuildId) {
+  const modal = new ModalBuilder().setCustomId(`guild:apply:${mageGuildId}:modal`).setTitle('Postuler à cette guilde');
+  modal.addComponents(modalText('message', 'Message de candidature', {
+    style: TextInputStyle.Paragraph, maxLength: 500, required: false, placeholder: 'Présente ton personnage et ses motivations.',
+  }));
+  return interaction.showModal(modal);
+}
+
+async function handleApplicationModal(interaction, mageGuildId) {
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+  if (!profile) return replyError(interaction, 'Aucun personnage actif.');
+  if ((await getGuildContext(profile)).membership) return replyError(interaction, 'Ton personnage appartient déjà à une guilde.');
+  const mageGuild = await MageGuild.findOne({ _id: mageGuildId, guildId: interaction.guildId });
+  if (!mageGuild) return replyError(interaction, 'Cette guilde n’existe plus.');
+  try {
+    await GuildApplication.create({
+      guildId: interaction.guildId, mageGuildId: mageGuild._id, profileId: profile._id,
+      message: interaction.fields.getTextInputValue('message').trim(),
+    });
+  } catch (error) {
+    if (error?.code === 11000) return replyError(interaction, 'Ta candidature est déjà en attente.');
+    throw error;
+  }
+  await sendGuildLog(interaction.guild, 'Candidature de guilde', [`**${profile.characterName}** postule auprès de **${mageGuild.name}**.`], 0xffb347);
+  return interaction.reply({ content: `✅ Ta candidature a été envoyée à **${mageGuild.name}**.`, flags: MessageFlags.Ephemeral });
+}
+
+async function showApplications(interaction) {
+  const state = await requireGuildPermission(interaction, 'members');
+  if (state.error) return replyError(interaction, state.error);
+  const applications = await GuildApplication.find({ mageGuildId: state.context.mageGuild._id })
+    .populate('profileId').sort({ createdAt: 1 }).limit(25);
+  const components = [];
+  if (applications.length) {
+    components.push(new ActionRowBuilder().addComponents(
+      new StringSelectMenuBuilder().setCustomId('guild:applications:select').setPlaceholder('Examiner une candidature')
+        .addOptions(applications.map((application) => new StringSelectMenuOptionBuilder()
+          .setLabel(truncateText(application.profileId?.characterName || 'Profil supprimé', 100))
+          .setDescription(truncateText(application.message || 'Aucun message', 100))
+          .setValue(String(application._id)))),
+    ));
+  }
+  components.push(new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId('guild:home').setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
+  ));
+  const attachment = await createPanelCanvas({
+    fileName: 'fairy-slayer-candidatures.png', variant: 'relations', section: `${state.context.mageGuild.name} - Recrutement`,
+    title: `${applications.length} candidature(s)`, subtitle: 'Sélectionne un personnage pour accepter ou refuser sa demande.',
+    lines: applications.length
+      ? applications.map((application) => `${application.profileId?.characterName || 'Profil supprimé'} - ${truncateText(application.message || 'Aucun message', 90)}`)
+      : ['Aucune candidature en attente.'],
+    footer: 'Guilde - Candidatures',
+  });
+  return respondCanvas(interaction, createLargeCanvasPayload({ attachment, components }));
+}
+
+async function showApplicationDetail(interaction, applicationId) {
+  const state = await requireGuildPermission(interaction, 'members');
+  if (state.error) return replyError(interaction, state.error);
+  const application = await GuildApplication.findOne({ _id: applicationId, mageGuildId: state.context.mageGuild._id }).populate('profileId');
+  if (!application?.profileId) return replyError(interaction, 'Cette candidature n’existe plus.');
+  const attachment = await createPanelCanvas({
+    fileName: 'fairy-slayer-candidature.png', variant: 'relations', section: 'Candidature',
+    title: application.profileId.characterName,
+    subtitle: `Rang ${application.profileId.mageRank} - Niveau ${application.profileId.level} - Puissance ${application.profileId.powerLevel}`,
+    lines: [application.message || 'Aucun message de candidature.'], footer: `Candidature pour ${state.context.mageGuild.name}`,
+  });
+  const row = new ActionRowBuilder().addComponents(
+    new ButtonBuilder().setCustomId(`guild:application:accept:${application._id}`).setLabel('Accepter').setEmoji('✅').setStyle(ButtonStyle.Success),
+    new ButtonBuilder().setCustomId(`guild:application:decline:${application._id}`).setLabel('Refuser').setEmoji('✖️').setStyle(ButtonStyle.Danger),
+    new ButtonBuilder().setCustomId('guild:applications').setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
+  );
+  return respondCanvas(interaction, createLargeCanvasPayload({ attachment, components: [row] }));
+}
+
+async function resolveApplication(interaction, applicationId, accept) {
+  const state = await requireGuildPermission(interaction, 'members');
+  if (state.error) return replyError(interaction, state.error);
+  const application = await GuildApplication.findOne({ _id: applicationId, mageGuildId: state.context.mageGuild._id }).populate('profileId');
+  if (!application?.profileId) return replyError(interaction, 'Cette candidature n’existe plus.');
+  const target = application.profileId;
+  if (!accept) {
+    await application.deleteOne();
+    await sendGuildLog(interaction.guild, 'Candidature refusée', [`**${target.characterName}** n’est pas admis(e) dans **${state.context.mageGuild.name}**.`, `Décision : **${state.profile.characterName}**`], 0xff6b6b);
+    await interaction.deferUpdate();
+    return showApplications(interaction);
+  }
+  if (await GuildMember.exists({ guildId: interaction.guildId, profileId: target._id })) {
+    await GuildApplication.deleteMany({ guildId: interaction.guildId, profileId: target._id });
+    return replyError(interaction, 'Ce personnage a déjà rejoint une guilde.');
+  }
+  try {
+    await GuildMember.create({ guildId: interaction.guildId, mageGuildId: state.context.mageGuild._id, profileId: target._id });
+  } catch (error) {
+    if (error?.code === 11000) return replyError(interaction, 'Ce personnage a déjà rejoint une guilde.');
+    throw error;
+  }
+  await Promise.all([
+    GuildApplication.deleteMany({ guildId: interaction.guildId, profileId: target._id }),
+    GuildInvite.deleteMany({ guildId: interaction.guildId, profileId: target._id }),
+    Profile.updateOne({ _id: target._id }, { $set: { guildName: state.context.mageGuild.name } }),
+  ]);
+  await sendGuildLog(interaction.guild, 'Candidature acceptée', [`**${target.characterName}** rejoint **${state.context.mageGuild.name}**.`, `Décision : **${state.profile.characterName}**`], 0x64d2a6);
+  await interaction.deferUpdate();
+  return showApplications(interaction);
+}
+
+async function showGuildRanking(interaction) {
+  const guilds = await MageGuild.find({ guildId: interaction.guildId }).limit(100);
+  const memberships = await GuildMember.find({ mageGuildId: { $in: guilds.map((guild) => guild._id) } }).populate('profileId').limit(500);
+  const rowsByGuild = new Map(guilds.map((guild) => [String(guild._id), { guild, members: [], power: 0, levels: 0 }]));
+  await Promise.all(memberships.map(async (membership) => {
+    const row = rowsByGuild.get(String(membership.mageGuildId));
+    if (!row || !membership.profileId) return;
+    const power = await getProfilePowerWithEquipment(membership.profileId);
+    row.members.push(membership.profileId);
+    row.power += Number(power.totalPower || 0);
+    row.levels += Number(membership.profileId.level || 1);
+  }));
+  const ranking = [...rowsByGuild.values()]
+    .sort((a, b) => b.power - a.power || b.members.length - a.members.length || b.levels - a.levels)
+    .slice(0, 10);
+  const medals = ['🥇', '🥈', '🥉'];
+  const lines = ranking.length ? ranking.map((row, index) => (
+    `${medals[index] || `#${index + 1}`} ${row.guild.name} - ${row.power.toLocaleString('fr-FR')} puissance - ${row.members.length} membre(s) - ${row.levels} niveaux`
+  )) : ['Aucune guilde classée pour l’instant.'];
+  const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
+  const context = profile ? await getGuildContext(profile) : { membership: null };
+  const backId = context.membership ? 'guild:home' : 'guild:browse';
+  const attachment = await createPanelCanvas({
+    fileName: 'fairy-slayer-classement-guildes.png', variant: 'ranking', section: 'Classement des guildes',
+    title: 'Puissance collective', subtitle: 'Puissance totale équipée, puis effectif et niveaux cumulés.',
+    lines, footer: 'Guilde - Classement',
+  });
+  return respondCanvas(interaction, createLargeCanvasPayload({
+    attachment,
+    components: [new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId(backId).setLabel('Retour').setEmoji('↩️').setStyle(ButtonStyle.Secondary),
+    )],
+  }));
+}
+
 async function showInvitation(interaction, inviteId) {
   const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
   if (!profile) return replyError(interaction, 'Aucun personnage actif.');
@@ -413,6 +631,7 @@ async function resolveInvitation(interaction, inviteId, accept) {
   }
   await Promise.all([
     GuildInvite.deleteMany({ guildId: interaction.guildId, profileId: profile._id }),
+    GuildApplication.deleteMany({ guildId: interaction.guildId, profileId: profile._id }),
     Profile.updateOne({ _id: profile._id }, { $set: { guildName: mageGuild.name } }),
   ]);
   await sendGuildLog(interaction.guild, 'Membre de guilde', [`**${profile.characterName}** rejoint **${mageGuild.name}**.`], 0x64d2a6);
@@ -540,6 +759,7 @@ async function handleDisbandModal(interaction) {
   const memberships = await GuildMember.find({ mageGuildId: state.context.mageGuild._id }).select('profileId');
   const profileIds = memberships.map((member) => member.profileId);
   await Promise.all([
+    GuildApplication.deleteMany({ mageGuildId: state.context.mageGuild._id }),
     GuildInvite.deleteMany({ mageGuildId: state.context.mageGuild._id }),
     GuildRank.deleteMany({ mageGuildId: state.context.mageGuild._id }),
     GuildMember.deleteMany({ mageGuildId: state.context.mageGuild._id }),
@@ -556,6 +776,11 @@ async function handleGuildComponent(interaction) {
   if (id === 'guild:create') return showCreateModal(interaction);
   if (id === 'guild:members') return showMembers(interaction);
   if (id === 'guild:ranks') return showRanks(interaction);
+  if (id === 'guild:ranking') return showGuildRanking(interaction);
+  if (id === 'guild:browse') return showGuildBrowser(interaction);
+  if (id === 'guild:browse:select') return showGuildDetail(interaction, interaction.values[0]);
+  if (id === 'guild:applications') return showApplications(interaction);
+  if (id === 'guild:applications:select') return showApplicationDetail(interaction, interaction.values[0]);
   if (id === 'guild:invite') return showInviteModal(interaction);
   if (id === 'guild:kick') return showMemberActionModal(interaction, 'kick');
   if (id === 'guild:assign') return showMemberActionModal(interaction, 'assign');
@@ -564,6 +789,9 @@ async function handleGuildComponent(interaction) {
   if (id === 'guild:invite:select') return showInvitation(interaction, interaction.values[0]);
   if (id.startsWith('guild:invite:accept:')) return resolveInvitation(interaction, id.split(':').pop(), true);
   if (id.startsWith('guild:invite:decline:')) return resolveInvitation(interaction, id.split(':').pop(), false);
+  if (id.startsWith('guild:application:accept:')) return resolveApplication(interaction, id.split(':').pop(), true);
+  if (id.startsWith('guild:application:decline:')) return resolveApplication(interaction, id.split(':').pop(), false);
+  if (id.startsWith('guild:apply:')) return showApplicationModal(interaction, id.split(':')[2]);
   if (id === 'guild:leave' || id === 'guild:disband') {
     const profile = await getActiveProfile(interaction.user.id, interaction.guildId);
     if (!profile) return replyError(interaction, 'Aucun personnage actif.');
@@ -584,6 +812,7 @@ async function handleGuildModal(interaction) {
   if (id === 'guild:rank:delete:modal') return handleRankDeleteModal(interaction);
   if (id === 'guild:leave:modal') return handleLeaveModal(interaction);
   if (id === 'guild:disband:modal') return handleDisbandModal(interaction);
+  if (id.startsWith('guild:apply:') && id.endsWith(':modal')) return handleApplicationModal(interaction, id.split(':')[2]);
   return replyError(interaction, 'Formulaire de guilde inconnu.');
 }
 
