@@ -572,29 +572,29 @@ async function createProfileCanvas(profile, discordUser) {
   ctx.lineWidth = 2;
   ctx.stroke();
 
-  const headerGradient = ctx.createLinearGradient(90, 85, width - 90, 160);
+  const headerGradient = ctx.createLinearGradient(60, 35, width - 60, 160);
   headerGradient.addColorStop(0, 'rgba(127, 92, 255, 0.45)');
   headerGradient.addColorStop(0.55, 'rgba(255, 207, 99, 0.16)');
   headerGradient.addColorStop(1, 'rgba(255, 122, 78, 0.35)');
 
-  drawRpgPanel(ctx, 92, 88, width - 184, 110, {
+  drawRpgPanel(ctx, 60, 35, width - 120, 125, {
     accent: '#ffcf63', cut: 20, fill: headerGradient, rivets: true,
   });
 
-  drawText(ctx, 'FAIRY SLAYER', 122, 98, 36, '#ffcf63', 'title');
-  drawText(ctx, truncateText(characterName, 34), 122, 142, 37, '#ffffff', 'bold');
+  drawText(ctx, 'FAIRY SLAYER', 92, 45, 36, '#ffcf63', 'title');
+  drawText(ctx, truncateText(characterName, 34), 92, 89, 37, '#ffffff', 'bold');
 
-  drawText(ctx, `Mage de rang ${mageRank}`, 880, 104, 21, '#ffffff', 'bold');
-  drawText(ctx, getRankLabel(mageRank), 880, 132, 33, '#ffcf63', 'bold');
-  drawCanvasIcon(ctx, professionIcon, 880, 168, 22, '#e8e7ff');
-  drawText(ctx, `Métier : ${professionLabel}`, 910, 171, 18, '#e8e7ff', 'regular');
+  drawText(ctx, `Mage de rang ${mageRank}`, 870, 51, 21, '#ffffff', 'bold');
+  drawText(ctx, getRankLabel(mageRank), 870, 79, 33, '#ffcf63', 'bold');
+  drawCanvasIcon(ctx, professionIcon, 870, 117, 22, '#e8e7ff');
+  drawText(ctx, `Métier : ${professionLabel}`, 900, 120, 18, '#e8e7ff', 'regular');
 
   const logo = await loadLocalImage(LOGO_PATH);
 
   if (logo) {
     ctx.save();
     ctx.globalAlpha = 0.96;
-    ctx.drawImage(logo, 1175, 88, 116, 116);
+    ctx.drawImage(logo, 1190, 40, 116, 116);
     ctx.restore();
 
     ctx.save();
@@ -608,10 +608,10 @@ async function createProfileCanvas(profile, discordUser) {
   const avatarUrl = profile?.avatarUrl || null;
   const avatar = avatarUrl ? await loadRemoteImage(avatarUrl) : null;
 
-  const avatarX = 100;
-  const avatarY = 240;
-  const avatarW = 320;
-  const avatarH = 400;
+  const avatarX = 80;
+  const avatarY = 180;
+  const avatarW = 340;
+  const avatarH = 420;
 
   drawRpgPanel(ctx, avatarX, avatarY, avatarW, avatarH, {
     accent: '#ffcf63', cut: 22, rivets: true,
@@ -644,70 +644,77 @@ async function createProfileCanvas(profile, discordUser) {
 
   drawCenteredText(ctx, `Niveau RP ${level}`, avatarX + 28, avatarY + avatarH - 47, avatarW - 56, 22, '#ffcf63', 'bold');
 
-  drawInfoBox(ctx, 'MAGIE', truncateText(magicType, 26), 470, 240, 380, 78, '#ff7a4e', 'magic');
-  drawInfoBox(ctx, 'GUILDE', truncateText(guildName, 26), 880, 240, 380, 78, '#3bd6ff', 'guild');
+  drawInfoBox(ctx, 'MAGIE', truncateText(magicType, 26), 460, 180, 390, 78, '#ff7a4e', 'magic');
+  drawInfoBox(ctx, 'GUILDE', truncateText(guildName, 26), 880, 180, 400, 78, '#3bd6ff', 'guild');
 
-  drawInfoBox(ctx, 'TITRE', truncateText(title, 30), 470, 338, 380, 78, '#ffcf63', 'crown');
-  drawInfoBox(ctx, 'ÂGE / GENRE', truncateText(`${age} · ${gender}`, 30), 880, 338, 380, 78, '#7f5cff', 'user');
+  drawInfoBox(ctx, 'TITRE', truncateText(title, 30), 460, 278, 390, 78, '#ffcf63', 'crown');
+  drawInfoBox(ctx, 'ÂGE / GENRE', truncateText(`${age} · ${gender}`, 30), 880, 278, 400, 78, '#7f5cff', 'user');
 
-  drawRpgPanel(ctx, 470, 430, 790, 102, { accent: '#ffcf63', cut: 16 });
+  drawRpgPanel(ctx, 460, 376, 820, 102, { accent: '#ffcf63', cut: 16 });
 
-  drawCanvasIcon(ctx, 'sword', 496, 443, 22, '#cec6f6');
-  drawText(ctx, 'NIVEAU DE PUISSANCE', 526, 446, 18, '#cec6f6', 'bold');
-  drawText(ctx, formatNumber(powerLevel), 496, 474, 42, '#ffcf63', 'bold');
+  drawCanvasIcon(ctx, 'sword', 486, 389, 22, '#cec6f6');
+  drawText(ctx, 'NIVEAU DE PUISSANCE', 516, 392, 18, '#cec6f6', 'bold');
+  drawText(ctx, formatNumber(powerLevel), 486, 420, 42, '#ffcf63', 'bold');
 
   const bonusLabel = equipmentBonus > 0
     ? `Base ${formatNumber(basePowerLevel)} + équipement ${formatNumber(equipmentBonus)}`
     : `Base ${formatNumber(basePowerLevel)}`;
 
-  drawText(ctx, bonusLabel, 496, 515, 14, '#cec6f6', 'bold');
-  drawBar(ctx, 760, 482, 460, 26, Math.min(1, powerLevel / 10000), '#7f5cff', '#ff7a4e');
+  drawText(ctx, bonusLabel, 486, 461, 14, '#cec6f6', 'bold');
+  drawBar(ctx, 750, 428, 490, 26, Math.min(1, powerLevel / 10000), '#7f5cff', '#ff7a4e');
 
-  drawRpgPanel(ctx, 470, 552, 790, 88, { accent: '#7f5cff', cut: 16 });
+  drawRpgPanel(ctx, 460, 498, 820, 92, { accent: '#7f5cff', cut: 16 });
 
-  drawCanvasIcon(ctx, 'chart', 496, 565, 22, '#ffffff');
-  drawText(ctx, `Progression du niveau ${level}`, 526, 568, 20, '#ffffff', 'bold');
-  drawText(ctx, `${formatNumber(xp)} / ${formatNumber(xpNeeded)} XP`, 965, 568, 17, '#cec6f6', 'bold');
-  drawBar(ctx, 496, 604, 724, 20, xpProgress, '#7f5cff', '#ffcf63');
+  drawCanvasIcon(ctx, 'chart', 486, 511, 22, '#ffffff');
+  drawText(ctx, `Progression du niveau ${level}`, 516, 514, 20, '#ffffff', 'bold');
+  drawText(ctx, `${formatNumber(xp)} / ${formatNumber(xpNeeded)} XP`, 975, 514, 17, '#cec6f6', 'bold');
+  drawBar(ctx, 486, 552, 754, 20, xpProgress, '#7f5cff', '#ffcf63');
 
-  drawRpgPanel(ctx, 100, 660, 720, 84, { accent: '#3bd6ff', cut: 14 });
+  drawRpgPanel(ctx, 80, 620, 750, 165, { accent: '#3bd6ff', cut: 14 });
 
-  drawCanvasIcon(ctx, 'book', 122, 668, 18, '#cec6f6');
-  drawText(ctx, 'DESCRIPTION', 148, 671, 14, '#cec6f6', 'bold');
-  drawWrappedText(ctx, description, 122, 693, 675, 17, 1, 15, '#ffffff');
+  drawCanvasIcon(ctx, 'book', 102, 630, 18, '#cec6f6');
+  drawText(ctx, 'DESCRIPTION', 128, 633, 14, '#cec6f6', 'bold');
+  drawWrappedText(ctx, description, 102, 655, 705, 19, 4, 16, '#ffffff');
+
+  ctx.strokeStyle = 'rgba(59,214,255,0.28)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(102, 736);
+  ctx.lineTo(807, 736);
+  ctx.stroke();
 
   drawText(
     ctx,
     `Arme : ${equippedItems.arme}   |   Tenue : ${equippedItems.tenue}`,
-    122,
-    715,
+    102,
+    744,
     13,
     '#ffcf63',
     'bold',
-    675,
+    705,
   );
 
   drawText(
     ctx,
     `Accessoire : ${equippedItems.accessoire}   |   Lacrima : ${equippedItems.lacrima}`,
-    122,
-    733,
+    102,
+    765,
     13,
     '#3bd6ff',
     'bold',
-    675,
+    705,
   );
 
-  drawInfoBox(ctx, 'JOYAUX', formatNumber(jewels), 850, 660, 180, 84, '#ffcf63', 'coin');
+  drawInfoBox(ctx, 'JOYAUX', formatNumber(jewels), 850, 650, 180, 100, '#ffcf63', 'coin');
 
   drawInfoBox(
     ctx,
     'RÉPUTATION',
     `${reputation} · ${getReputationLabel(reputation)}`,
     1050,
-    660,
+    650,
     210,
-    84,
+    100,
     '#7f5cff',
     'star',
   );

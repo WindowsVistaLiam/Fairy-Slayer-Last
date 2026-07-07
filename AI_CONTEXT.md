@@ -54,6 +54,7 @@ Le `README.md` sert de référence fonctionnelle et de source d’idées. Le cod
 - Décoration Canvas généralisée : badges emoji pour les statistiques et les listes, thèmes dédiés aux guildes, métiers, craft, combats et daily, pictogrammes sur les objets et menus Discord.
 - La carte profil dessine ses icônes localement via `iconRenderer.js` pour éviter les carrés blancs lorsque Railway ne fournit pas de police emoji compatible.
 - Les moteurs `profileCanvas` et `panelCanvas` utilisent des plaques RPG plein cadre à coins coupés, doubles bordures, rivets et jauges segmentées plutôt que des cartes modernes arrondies.
+- La composition du profil est remontée pour exploiter le cadre plein format ; la description dispose de quatre lignes et reste séparée visuellement de l’équipement.
 - Navigation `/profil` regroupée dans un menu déroulant ; seuls Changer, Modifier, Biographie et Image restent en boutons.
 - Inspection détaillée d’un profil depuis `/admin`, en lecture seule.
 - Gacha Fairy Tail avec 299 cartes, cinq raretés, un tirage gratuit toutes les deux heures et des achats simple/multiple en fragments.
