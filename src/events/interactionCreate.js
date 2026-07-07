@@ -1,3 +1,5 @@
+const { MessageFlags } = require('discord.js');
+
 const { handleComponentInteraction, handleModalInteraction } = require('../interactions/router');
 
 module.exports = {
@@ -8,7 +10,7 @@ module.exports = {
         const command = client.commands.get(interaction.commandName);
 
         if (!command) {
-          return interaction.reply({ content: 'Commande introuvable.', ephemeral: true });
+          return interaction.reply({ content: 'Commande introuvable.', flags: MessageFlags.Ephemeral });
         }
 
         return await command.execute(interaction, client);
@@ -28,7 +30,7 @@ module.exports = {
 
       const payload = {
         content: 'Une erreur est survenue pendant le traitement de cette action.',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       };
 
       if (interaction.replied || interaction.deferred) {

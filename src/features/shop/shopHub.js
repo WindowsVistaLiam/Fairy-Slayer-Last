@@ -173,10 +173,10 @@ function getBuyRows(items, profile, rumors, powerInfo, filterType, page, totalPa
   const filterKey = filterType || 'all';
   rows.push(new ActionRowBuilder().addComponents(
     new ButtonBuilder()
-      .setCustomId(`shop:view:${filterKey}:${Math.max(0, page - 1)}`)
+      .setCustomId(`shop:view:${filterKey}:${Math.max(0, page - 1)}:previous`)
       .setLabel('Précédent').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
     new ButtonBuilder()
-      .setCustomId(`shop:view:${filterKey}:${Math.min(totalPages - 1, page + 1)}`)
+      .setCustomId(`shop:view:${filterKey}:${Math.min(totalPages - 1, page + 1)}:next`)
       .setLabel('Suivant').setEmoji('➡️').setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1),
     new ButtonBuilder().setCustomId('shop:sell-menu').setLabel('Vendre').setEmoji('💰').setStyle(ButtonStyle.Success),
   ));
@@ -215,10 +215,10 @@ function getSellRows(inventoryItems, page = 0, totalPages = 1) {
         .setEmoji('↩️')
         .setStyle(ButtonStyle.Secondary),
       new ButtonBuilder()
-        .setCustomId(`shop:sell-page:${Math.max(0, page - 1)}`)
+        .setCustomId(`shop:sell-page:${Math.max(0, page - 1)}:previous`)
         .setLabel('Précédent').setEmoji('⬅️').setStyle(ButtonStyle.Secondary).setDisabled(page <= 0),
       new ButtonBuilder()
-        .setCustomId(`shop:sell-page:${Math.min(totalPages - 1, page + 1)}`)
+        .setCustomId(`shop:sell-page:${Math.min(totalPages - 1, page + 1)}:next`)
         .setLabel('Suivant').setEmoji('➡️').setStyle(ButtonStyle.Secondary).setDisabled(page >= totalPages - 1),
     ),
   );
@@ -468,7 +468,10 @@ async function handleShopComponent(interaction) {
   if (id === 'shop:back') return renderShop(interaction);
 
   if (id === 'shop:sell-menu') return renderSellMenu(interaction);
-  if (id.startsWith('shop:sell-page:')) return renderSellMenu(interaction, Number.parseInt(id.split(':').pop(), 10) || 0);
+  if (id.startsWith('shop:sell-page:')) {
+    const [, , rawPage] = id.split(':');
+    return renderSellMenu(interaction, Number.parseInt(rawPage, 10) || 0);
+  }
 
   if (id === 'shop:consommable') return renderShop(interaction, 'consommable');
   if (id === 'shop:equipement') return renderShop(interaction, 'equipement');
